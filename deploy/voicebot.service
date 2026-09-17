@@ -1,0 +1,34 @@
+[Unit]
+Description=Private Discord voice memo bot
+After=network-online.target mnt-obsidian\x2dvault.mount
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=voicebot
+Group=voicebot
+WorkingDirectory=/opt/voice-to-text
+EnvironmentFile=/etc/voicebot/voicebot.env
+Environment=DATA_ROOT=/var/lib/voicebot
+ExecStart=/opt/voice-to-text/.venv/bin/python /opt/voice-to-text/bot.py
+Restart=on-failure
+RestartSec=10s
+
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/voicebot "/mnt/obsidian-vault/Voice Journal"
+
+[Install]
+WantedBy=multi-user.target

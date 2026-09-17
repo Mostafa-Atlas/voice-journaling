@@ -1,0 +1,36 @@
+# Secrets and machine-local configuration
+.env
+.env.*
+!.env.example
+
+# Private application data
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+voice_logs/
+data/
+logs/
+exports/
+*.log
+
+# Python
+.venv/
+.runtime-deps/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
