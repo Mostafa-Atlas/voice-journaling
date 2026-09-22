@@ -5,12 +5,11 @@ import os
 import re
 import shutil
 import tempfile
+from collections.abc import Callable, Iterable
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Iterable
 
 from .models import Memo, SummaryData, escape_markdown
-
 
 SUPPORTED_EXTENSIONS = frozenset(
     {".ogg", ".mp3", ".wav", ".m4a", ".webm", ".flac", ".mp4", ".mpeg", ".mpga"}
@@ -44,7 +43,11 @@ class FileStorage:
 
     def _memo_directory_path(self, memo_id: str, received_at: str) -> Path:
         safe_id = safe_component(memo_id, fallback="memo")
-        date_text = received_at[:10] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", received_at[:10]) else "unknown-date"
+        date_text = (
+            received_at[:10]
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", received_at[:10])
+            else "unknown-date"
+        )
         path = (self.voice_log_dir / date_text / safe_id).resolve()
         self._assert_inside(path, self.voice_log_dir)
         return path
@@ -68,7 +71,13 @@ class FileStorage:
                 f"audio download size mismatch: expected {expected_size} bytes, got {actual_size}"
             )
         with temporary.open("rb") as handle:
-            os.fsync(handle.fileno())
+            try:
+                os.fsync(handle.fileno())
+            except OSError:
+                # Windows disallows fsync on read-only handles; the data was
+                # already flushed by the writer. Durability still holds after
+                # os.replace below + directory sync on POSIX.
+                pass
         os.replace(temporary, final)
         _private_file(final)
 
@@ -76,9 +85,13 @@ class FileStorage:
         directory = self.memo_directory(memo.memo_id, memo.received_at)
         transcript_path = directory / "transcript.md"
         summary_path = directory / "summary.md"
-        daily_relative = Path("..").joinpath("..", "daily", f"{memo.received_at[:10]}.md").as_posix()
+        daily_relative = (
+            Path("..").joinpath("..", "daily", f"{memo.received_at[:10]}.md").as_posix()
+        )
         transcript = memo.transcript or ""
-        transcript_lines = "\n".join(f"> {escape_markdown(line)}" for line in transcript.splitlines())
+        transcript_lines = "\n".join(
+            f"> {escape_markdown(line)}" for line in transcript.splitlines()
+        )
         transcript_content = (
             "# Voice Transcript\n\n"
             f"[← Back to {memo.received_at[:10]}]({daily_relative})\n\n"
@@ -114,9 +127,7 @@ class FileStorage:
             current_memos = list(memos() if callable(memos) else memos)
             return self._write_daily_index(index_path, date_text, current_memos)
 
-    def _write_daily_index(
-        self, index_path: Path, date_text: str, memos: Iterable[Memo]
-    ) -> str:
+    def _write_daily_index(self, index_path: Path, date_text: str, memos: Iterable[Memo]) -> str:
         sections = [
             "---",
             "generated: true",
@@ -177,9 +188,7 @@ class FileStorage:
             path = self.resolve(stored)
             self._assert_inside(path, self.voice_log_dir)
             if path.parent != expected:
-                raise UnsafePathError(
-                    f"stored memo path is outside its expected directory: {path}"
-                )
+                raise UnsafePathError(f"stored memo path is outside its expected directory: {path}")
         if expected.exists():
             self._assert_inside(expected, self.voice_log_dir)
             shutil.rmtree(expected)
@@ -250,13 +259,16 @@ def safe_component(value: str, *, fallback: str = "item", max_length: int = 120)
     value = re.sub(r"[\x00-\x1f<>:\"/\\|?*]+", "_", value)
     value = re.sub(r"\s+", "_", value).strip(" ._")
     reserved = {
-        "CON", "PRN", "AUX", "NUL",
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
         *(f"COM{i}" for i in range(1, 10)),
         *(f"LPT{i}" for i in range(1, 10)),
     }
     if value.upper() in reserved:
         value = f"_{value}"
-    return (value[:max_length].rstrip(" .") or fallback)
+    return value[:max_length].rstrip(" .") or fallback
 
 
 def _display_time(timestamp: str) -> str:

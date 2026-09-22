@@ -12,9 +12,7 @@ class SummaryTests(unittest.TestCase):
                 "summary": " Plan the release. ",
                 "key_points": ["Version 2", ""],
                 "decisions": [],
-                "action_items": [
-                    {"task": "Ship it", "owner": "Aether", "deadline": None}
-                ],
+                "action_items": [{"task": "Ship it", "owner": "Aether", "deadline": None}],
                 "mentioned": ["Friday"],
             }
         )

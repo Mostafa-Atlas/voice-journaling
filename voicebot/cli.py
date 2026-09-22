@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -78,7 +77,8 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("Choose --days N or set RETENTION_DAYS to a positive value")
         cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         candidates = [
-            memo for memo in database.retention_candidates(cutoff)
+            memo
+            for memo in database.retention_candidates(cutoff)
             if not memo.memo_id.startswith("legacy-")
         ]
         for memo in candidates:

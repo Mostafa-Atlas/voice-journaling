@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import html
+import json
 import re
 from dataclasses import asdict, dataclass
 from enum import StrEnum
@@ -25,7 +25,7 @@ class ActionItem:
     deadline: str | None = None
 
     @classmethod
-    def from_value(cls, value: Any) -> "ActionItem":
+    def from_value(cls, value: Any) -> ActionItem:
         if isinstance(value, str):
             return cls(task=_clean(value, 1_000))
         if not isinstance(value, dict):
@@ -45,7 +45,7 @@ class SummaryData:
     mentioned: tuple[str, ...] = ()
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "SummaryData":
+    def from_dict(cls, payload: dict[str, Any]) -> SummaryData:
         expected = {"summary", "key_points", "decisions", "action_items", "mentioned"}
         if set(payload) != expected:
             missing = sorted(expected - set(payload))
@@ -63,7 +63,7 @@ class SummaryData:
         )
 
     @classmethod
-    def from_json(cls, value: str) -> "SummaryData":
+    def from_json(cls, value: str) -> SummaryData:
         payload = json.loads(value)
         if not isinstance(payload, dict):
             raise ValueError("summary response must be a JSON object")

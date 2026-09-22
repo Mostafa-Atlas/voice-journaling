@@ -3,13 +3,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+
 from .config import Settings
 from .database import Database
 from .models import Memo, MemoStatus
 from .obsidian import ObsidianSync
 from .service import IncomingMemo, MemoService
 from .storage import SUPPORTED_EXTENSIONS
-
 
 log = logging.getLogger("voicebot.discord")
 
@@ -44,7 +44,7 @@ def create_bot(
     async def on_ready():
         nonlocal resume_started
         log.info("bot ready user_id=%s config=%s", bot.user.id, settings.redacted_summary())
-        if not queue_loop.is_running():
+        if settings.obsidian_enabled and not queue_loop.is_running():
             queue_loop.start()
         if not resume_started:
             resume_started = True
@@ -53,8 +53,7 @@ def create_bot(
     @bot.check
     async def authorized_dm(ctx) -> bool:
         return (
-            isinstance(ctx.channel, discord.DMChannel)
-            and ctx.author.id in settings.allowed_users
+            isinstance(ctx.channel, discord.DMChannel) and ctx.author.id in settings.allowed_users
         )
 
     @bot.event
@@ -120,7 +119,14 @@ def create_bot(
                     f"❌ Memo `{incoming.memo_id}` failed safely.\n{guidance}",
                 )
                 return
-            sync_text = "synced to Obsidian" if result.obsidian_synced else "queued for Obsidian"
+            if settings.obsidian_enabled:
+                sync_text = (
+                    "synced to Obsidian" if result.obsidian_synced else "queued for Obsidian"
+                )
+            else:
+                stt = getattr(getattr(service, "gateway", None), "stt_provider", "stt")
+                llm = getattr(getattr(service, "gateway", None), "summary_provider", "summary")
+                sync_text = f"saved via {llm}/{stt}"
             duplicate = " · already processed" if not result.created else ""
             await _safe_edit(
                 status_message,
@@ -164,17 +170,14 @@ def create_bot(
 
     @bot.command(name="last")
     async def last_command(ctx, count: int = 5):
-        memos = await asyncio.to_thread(
-            database.recent_for_user, str(ctx.author.id), count
-        )
+        memos = await asyncio.to_thread(database.recent_for_user, str(ctx.author.id), count)
         if not memos:
             await ctx.reply("No saved voice memos yet.")
             return
         lines = ["🗂️ **Recent voice memos**"]
         for memo in memos:
             lines.append(
-                f"- `{memo.memo_id}` · `{memo.status}` · {memo.received_at[:19]}\n"
-                f"  {_teaser(memo)}"
+                f"- `{memo.memo_id}` · `{memo.status}` · {memo.received_at[:19]}\n  {_teaser(memo)}"
             )
         await _reply_chunks(ctx, "\n".join(lines))
 
@@ -183,9 +186,7 @@ def create_bot(
         if not query.strip():
             await ctx.reply("Usage: `!search words to find`")
             return
-        memos = await asyncio.to_thread(
-            database.search_for_user, str(ctx.author.id), query, 10
-        )
+        memos = await asyncio.to_thread(database.search_for_user, str(ctx.author.id), query, 10)
         if not memos:
             await ctx.reply("No matching voice memos.")
             return
@@ -218,10 +219,15 @@ def create_bot(
                 content=f"❌ Retry failed safely for `{memo_id}`. Check `!status` or logs."
             )
             return
-        await status.edit(content=f"✅ Memo `{result.memo.memo_id}` completed. {_teaser(result.memo)}")
+        await status.edit(
+            content=f"✅ Memo `{result.memo.memo_id}` completed. {_teaser(result.memo)}"
+        )
 
     @bot.command(name="sync")
     async def sync_command(ctx):
+        if not settings.obsidian_enabled:
+            await ctx.reply("Obsidian sync is disabled. Memos are saved locally.")
+            return
         delivered = await obsidian.flush()
         counts = await asyncio.to_thread(database.outbox_counts, str(ctx.author.id))
         pending = counts.get("pending", 0) + counts.get("delivering", 0)
@@ -242,14 +248,19 @@ def create_bot(
         )
         hours, remainder = divmod(int(time.monotonic() - started), 3_600)
         minutes = remainder // 60
-        vault = "available" if await asyncio.to_thread(obsidian.available) else "unavailable"
+        if settings.obsidian_enabled:
+            vault = "available" if await asyncio.to_thread(obsidian.available) else "unavailable"
+            pending = outbox_counts.get("pending", 0)
+            vault_line = f"Obsidian: {vault} · Pending sync: {pending}\n"
+        else:
+            vault_line = "Obsidian: disabled\n"
         last_text = last.received_at[:19] if last else "none"
         await ctx.reply(
             "**Bot status**\n"
             f"Uptime: {hours}h {minutes}m\n"
             f"In flight: {service.in_flight_count}\n"
             f"Completed: {memo_counts.get('completed', 0)} · Failed: {memo_counts.get('failed', 0)}\n"
-            f"Obsidian: {vault} · Pending sync: {outbox_counts.get('pending', 0)}\n"
+            f"{vault_line}"
             f"Last completed: {last_text}"
         )
 

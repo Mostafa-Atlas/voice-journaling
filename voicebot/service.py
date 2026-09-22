@@ -15,7 +15,6 @@ from .models import Memo, MemoStatus
 from .obsidian import ObsidianSync
 from .storage import FileStorage, safe_component
 
-
 log = logging.getLogger("voicebot.service")
 SaveAttachment = Callable[[Path], Awaitable[None]]
 ProgressCallback = Callable[[str], Awaitable[None]]
@@ -106,9 +105,9 @@ class MemoService:
             received_at=incoming.received_at.isoformat(),
         )
         if memo.status == MemoStatus.COMPLETED.value:
-            sync_status = await asyncio.to_thread(
-                self.database.outbox_status, memo.memo_id
-            )
+            sync_status = None
+            if self.settings.obsidian_enabled:
+                sync_status = await asyncio.to_thread(self.database.outbox_status, memo.memo_id)
             return ProcessingResult(
                 memo=memo,
                 created=False,
@@ -157,9 +156,9 @@ class MemoService:
             try:
                 memo = await asyncio.to_thread(self.database.increment_attempt, memo_id)
                 if memo.status == MemoStatus.COMPLETED.value:
-                    sync_status = await asyncio.to_thread(
-                        self.database.outbox_status, memo_id
-                    )
+                    sync_status = None
+                    if self.settings.obsidian_enabled:
+                        sync_status = await asyncio.to_thread(self.database.outbox_status, memo_id)
                     return ProcessingResult(
                         memo=memo,
                         created=False,
@@ -261,20 +260,19 @@ class MemoService:
                 )
                 self._log_stage(memo_id, "completed", started)
 
-                await _progress(progress, "syncing Obsidian")
                 synced = False
-                try:
-                    await self.obsidian.flush()
-                    sync_status = await asyncio.to_thread(
-                        self.database.outbox_status, memo_id
-                    )
-                    synced = sync_status == "delivered"
-                except Exception as exc:
-                    log.error(
-                        "post-completion sync failed memo_id=%s error_type=%s",
-                        memo_id,
-                        type(exc).__name__,
-                    )
+                if self.settings.obsidian_enabled:
+                    await _progress(progress, "syncing Obsidian")
+                    try:
+                        await self.obsidian.flush()
+                        sync_status = await asyncio.to_thread(self.database.outbox_status, memo_id)
+                        synced = sync_status == "delivered"
+                    except Exception as exc:
+                        log.error(
+                            "post-completion sync failed memo_id=%s error_type=%s",
+                            memo_id,
+                            type(exc).__name__,
+                        )
                 return ProcessingResult(memo=memo, created=created, obsidian_synced=synced)
             except Exception as exc:
                 await asyncio.to_thread(

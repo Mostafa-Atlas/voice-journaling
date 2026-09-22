@@ -7,16 +7,18 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parent.parent
 IGNORED_PARTS = {".git", ".venv", "venv", "__pycache__", "voice_logs", "logs", "data"}
 IGNORED_NAMES = {".env", "transcripts.db"}
 FORBIDDEN_TRACKED_SUFFIXES = {".db", ".sqlite", ".ogg", ".mp3", ".wav", ".m4a", ".webm", ".flac"}
 PATTERNS = {
-    "Discord token": re.compile(r"\b(?:mfa\.[A-Za-z0-9_-]{20,}|[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{20,})\b"),
+    "Discord token": re.compile(
+        r"\b(?:mfa\.[A-Za-z0-9_-]{20,}|[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{20,})\b"
+    ),
     "Groq/API key": re.compile(r"\b(?:gsk|sk)_[A-Za-z0-9_-]{16,}\b"),
+    "OpenAI key": re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b"),
     "Assigned secret": re.compile(
-        r"^\s*(?:DISCORD_TOKEN|GROQ_API_KEY)\s*=\s*['\"]?(?!<|your-|$)[^\s'\"]{12,}"
+        r"^\s*(?:DISCORD_TOKEN|GROQ_API_KEY|OPENAI_API_KEY)\s*=\s*['\"]?(?!<|your-|$)[^\s'\"]{12,}"
     ),
 }
 URL = re.compile(r"https?://\S+")

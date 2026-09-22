@@ -10,9 +10,15 @@ import os
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target-user", type=int, required=True, help="Exact Discord user ID")
-    parser.add_argument("--limit", type=int, default=100, help="Maximum messages to inspect (1-5000)")
-    parser.add_argument("--before-days", type=int, help="Only inspect messages older than this many days")
-    parser.add_argument("--execute", action="store_true", help="Actually delete; default is dry-run")
+    parser.add_argument(
+        "--limit", type=int, default=100, help="Maximum messages to inspect (1-5000)"
+    )
+    parser.add_argument(
+        "--before-days", type=int, help="Only inspect messages older than this many days"
+    )
+    parser.add_argument(
+        "--execute", action="store_true", help="Actually delete; default is dry-run"
+    )
     parser.add_argument("--yes", action="store_true", help="Skip the interactive confirmation")
     return parser
 
@@ -37,7 +43,9 @@ async def run_cleanup(args: argparse.Namespace, token: str) -> int:
                     continue
                 result["matched"] += 1
                 if not args.execute:
-                    print(f"DRY-RUN message_id={message.id} created_at={message.created_at.isoformat()}")
+                    print(
+                        f"DRY-RUN message_id={message.id} created_at={message.created_at.isoformat()}"
+                    )
                     continue
                 try:
                     await message.delete()

@@ -1,6 +1,6 @@
 [Unit]
-Description=Private Discord voice memo bot
-After=network-online.target mnt-obsidian\x2dvault.mount
+Description=Discord voice memo bot
+After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=300
 StartLimitBurst=5
@@ -28,7 +28,9 @@ RestrictSUIDSGID=true
 LockPersonality=true
 CapabilityBoundingSet=
 AmbientCapabilities=
-ReadWritePaths=/var/lib/voicebot "/mnt/obsidian-vault/Voice Journal"
+# Add your vault path here only if OBSIDIAN_ENABLED=true, e.g.:
+# ReadWritePaths=/var/lib/voicebot /mnt/obsidian-vault
+ReadWritePaths=/var/lib/voicebot
 
 [Install]
 WantedBy=multi-user.target

@@ -8,7 +8,7 @@ import os
 
 from dotenv import load_dotenv
 
-from voicebot.ai import GroqGateway
+from voicebot.ai import build_gateway
 from voicebot.config import PROJECT_ROOT, ConfigurationError, Settings
 from voicebot.database import Database
 from voicebot.discord_app import create_bot
@@ -21,7 +21,8 @@ from voicebot.storage import FileStorage
 def main() -> int:
     if os.name == "posix":
         os.umask(0o077)
-    load_dotenv(PROJECT_ROOT / ".env")
+    # Environment variables always win over .env values.
+    load_dotenv(PROJECT_ROOT / ".env", override=False)
     try:
         settings = Settings.load()
     except ConfigurationError as exc:
@@ -32,7 +33,7 @@ def main() -> int:
     database = Database(settings.database_path)
     database.initialize()
     storage = FileStorage(settings.data_root, settings.voice_log_dir)
-    gateway = GroqGateway(settings)
+    gateway = build_gateway(settings)
     obsidian = ObsidianSync(settings, database)
     service = MemoService(settings, database, storage, gateway, obsidian)
     bot = create_bot(settings, database, service, obsidian)

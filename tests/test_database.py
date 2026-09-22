@@ -11,12 +11,16 @@ from voicebot.models import MemoStatus, SummaryData
 
 class DatabaseTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
+        self.temporary = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.path = Path(self.temporary.name) / "transcripts.db"
         self.database = Database(self.path)
         self.database.initialize()
 
     def tearDown(self):
+        try:
+            self.database.checkpoint()
+        except Exception:
+            pass
         self.temporary.cleanup()
 
     def register(self, memo_id="discord-1-2"):
@@ -62,7 +66,7 @@ class DatabaseTests(unittest.TestCase):
 
     def test_legacy_table_is_migrated_without_removal(self):
         self.temporary.cleanup()
-        self.temporary = tempfile.TemporaryDirectory()
+        self.temporary = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.path = Path(self.temporary.name) / "legacy.db"
         with sqlite3.connect(self.path) as connection:
             connection.execute(

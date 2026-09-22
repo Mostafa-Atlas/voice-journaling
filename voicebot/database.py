@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from .models import Memo, MemoStatus, SummaryData
-
 
 SCHEMA_VERSION = 2
 
@@ -32,6 +32,22 @@ class Database:
         except OSError:
             pass
         return connection
+
+    def checkpoint(self) -> None:
+        """Checkpoint WAL content so temp dirs can be removed on Windows.
+
+        SQLite on Windows keeps `-wal`/`-shm` handles briefly after the last
+        connection closes. Checkpointing with TRUNCATE releases them eagerly,
+        which makes `TemporaryDirectory.cleanup()` reliable in tests.
+        """
+        try:
+            with self.connect() as connection:
+                connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception:
+            pass
+
+    def dispose(self) -> None:
+        self.checkpoint()
 
     def initialize(self) -> None:
         with self.connect() as connection:
@@ -94,12 +110,12 @@ class Database:
             self._ensure_column(connection, "outbox", "lease_owner", "TEXT")
             self._ensure_column(connection, "outbox", "lease_until", "TEXT")
             required_memo_columns = set(Memo.__dataclass_fields__)
-            actual_memo_columns = {
-                row[1] for row in connection.execute("PRAGMA table_info(memos)")
-            }
+            actual_memo_columns = {row[1] for row in connection.execute("PRAGMA table_info(memos)")}
             missing = required_memo_columns - actual_memo_columns
             if missing:
-                raise RuntimeError(f"unsupported incomplete memos schema; missing {sorted(missing)}")
+                raise RuntimeError(
+                    f"unsupported incomplete memos schema; missing {sorted(missing)}"
+                )
             self._create_fts(connection)
             self._migrate_legacy_transcripts(connection)
             self._migrate_legacy_queue(connection)
@@ -129,9 +145,7 @@ class Database:
         ).fetchone()
         if not exists:
             return
-        columns = {
-            row[1] for row in connection.execute("PRAGMA table_info(transcripts)")
-        }
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(transcripts)")}
         required = {"id", "username", "discord_id", "timestamp", "transcript"}
         if not required.issubset(columns):
             return
@@ -178,9 +192,7 @@ class Database:
         ).fetchone()
         if not exists:
             return
-        columns = {
-            row[1] for row in connection.execute("PRAGMA table_info(obsidian_queue)")
-        }
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(obsidian_queue)")}
         required = {"id", "date_str", "time_str", "audio_filename", "summary", "transcript"}
         if not required.issubset(columns):
             return
@@ -272,9 +284,7 @@ class Database:
 
     def get_memo(self, memo_id: str) -> Memo | None:
         with self.connect() as connection:
-            row = connection.execute(
-                "SELECT * FROM memos WHERE memo_id=?", (memo_id,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM memos WHERE memo_id=?", (memo_id,)).fetchone()
         return _memo(row) if row else None
 
     def update_memo(self, memo_id: str, **fields: Any) -> Memo:
@@ -300,16 +310,12 @@ class Database:
         assignments = ", ".join(f"{name}=?" for name in fields)
         values = list(fields.values()) + [memo_id]
         with self.connect() as connection:
-            cursor = connection.execute(
-                f"UPDATE memos SET {assignments} WHERE memo_id=?", values
-            )
+            cursor = connection.execute(f"UPDATE memos SET {assignments} WHERE memo_id=?", values)
             if cursor.rowcount != 1:
                 raise KeyError(memo_id)
             if "transcript" in fields or "summary_text" in fields:
                 self._sync_fts(connection, memo_id)
-            row = connection.execute(
-                "SELECT * FROM memos WHERE memo_id=?", (memo_id,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM memos WHERE memo_id=?", (memo_id,)).fetchone()
         if row is None:
             raise KeyError(memo_id)
         return _memo(row)
@@ -320,9 +326,7 @@ class Database:
                 "UPDATE memos SET attempt_count=attempt_count+1, updated_at=? WHERE memo_id=?",
                 (_utc_now(), memo_id),
             )
-            row = connection.execute(
-                "SELECT * FROM memos WHERE memo_id=?", (memo_id,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM memos WHERE memo_id=?", (memo_id,)).fetchone()
         if row is None:
             raise KeyError(memo_id)
         return _memo(row)
@@ -457,8 +461,7 @@ class Database:
                 connection.rollback()
                 return None
             claimed = connection.execute(
-                "SELECT o.*, m.discord_id FROM outbox o "
-                "JOIN memos m USING(memo_id) WHERE o.id=?",
+                "SELECT o.*, m.discord_id FROM outbox o JOIN memos m USING(memo_id) WHERE o.id=?",
                 (item_id,),
             ).fetchone()
             connection.commit()
@@ -501,9 +504,7 @@ class Database:
                 parameters,
             )
 
-    def mark_outbox_failed(
-        self, item_id: int, attempts: int, error: str, worker_id: str
-    ) -> None:
+    def mark_outbox_failed(self, item_id: int, attempts: int, error: str, worker_id: str) -> None:
         with self.connect() as connection:
             connection.execute(
                 "UPDATE outbox SET status='failed', attempts=?, last_error=?, "
@@ -627,6 +628,7 @@ def _sanitize_error(value: str) -> str:
     import re
 
     text = re.sub(r"\b(?:gsk|sk)_[A-Za-z0-9_-]{16,}\b", "<redacted>", text)
+    text = re.sub(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b", "<redacted>", text)
     text = re.sub(
         r"\b[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{20,}\b",
         "<redacted>",

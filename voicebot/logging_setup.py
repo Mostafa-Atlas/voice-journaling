@@ -7,7 +7,6 @@ from logging.handlers import RotatingFileHandler
 
 from .config import Settings
 
-
 SECRET_PATTERNS = (
     re.compile(r"\b(?:gsk|sk)_[A-Za-z0-9_-]{16,}\b"),
     re.compile(r"\b[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{20,}\b"),

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import make_settings
+from tests.helpers import dispose_database, make_settings
 from voicebot.database import Database
 from voicebot.models import MemoStatus, SummaryData
 from voicebot.obsidian import ObsidianSync
@@ -12,9 +12,9 @@ from voicebot.obsidian import ObsidianSync
 
 class ObsidianTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
+        self.temporary = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         root = Path(self.temporary.name)
-        self.settings = make_settings(root)
+        self.settings = make_settings(root, OBSIDIAN_ENABLED="true")
         self.database = Database(self.settings.database_path)
         self.database.initialize()
         memo, _ = self.database.register_memo(
@@ -39,6 +39,7 @@ class ObsidianTests(unittest.IsolatedAsyncioTestCase):
         self.sync = ObsidianSync(self.settings, self.database)
 
     async def asyncTearDown(self):
+        dispose_database(self.database)
         self.temporary.cleanup()
 
     async def test_delivery_is_idempotent_even_after_acknowledgement_loss(self):
@@ -57,9 +58,19 @@ class ObsidianTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(second.count("<!-- voice-memo:discord-1-2 -->"), 1)
         self.assertNotIn("![beacon]", second)
 
+    async def test_disabled_obsidian_skips_queue(self):
+        from voicebot.obsidian import ObsidianSync
+
+        disabled = make_settings(Path(self.temporary.name), OBSIDIAN_ENABLED="false")
+        sync = ObsidianSync(disabled, self.database)
+        self.assertFalse(sync.available())
+        sync.enqueue(self.memo.memo_id)
+        self.assertEqual(await sync.flush(), 0)
+
     async def test_unavailable_vault_leaves_item_pending(self):
         missing_settings = make_settings(
             Path(self.temporary.name),
+            OBSIDIAN_ENABLED="true",
             OBSIDIAN_VAULT_PATH=str(Path(self.temporary.name) / "missing"),
         )
         sync = ObsidianSync(missing_settings, self.database)

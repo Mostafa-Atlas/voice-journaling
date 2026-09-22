@@ -22,9 +22,7 @@ class DeleteMessagesTests(unittest.TestCase):
         with patch.dict("os.environ", {"DISCORD_CLEANUP_TOKEN": "test-token"}, clear=True):
             with patch("builtins.input", return_value="no"):
                 with self.assertRaisesRegex(SystemExit, "nothing was deleted"):
-                    delete_messages.main(
-                        ["--target-user", "123", "--limit", "1", "--execute"]
-                    )
+                    delete_messages.main(["--target-user", "123", "--limit", "1", "--execute"])
 
 
 if __name__ == "__main__":

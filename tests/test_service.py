@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from tests.helpers import make_settings
+from tests.helpers import dispose_database, make_settings
 from voicebot.database import Database
 from voicebot.models import MemoStatus, SummaryData
 from voicebot.obsidian import ObsidianSync
@@ -40,9 +40,9 @@ class FakeGateway:
 
 class ServiceTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
+        self.temporary = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         root = Path(self.temporary.name)
-        self.settings = make_settings(root)
+        self.settings = make_settings(root, OBSIDIAN_ENABLED="true")
         self.database = Database(self.settings.database_path)
         self.database.initialize()
         self.storage = FileStorage(self.settings.data_root, self.settings.voice_log_dir)
@@ -63,6 +63,7 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def asyncTearDown(self):
+        dispose_database(self.database)
         self.temporary.cleanup()
 
     async def saver(self, path: Path):

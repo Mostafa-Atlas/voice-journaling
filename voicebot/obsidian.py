@@ -12,7 +12,6 @@ from .database import Database
 from .models import Memo, SummaryData, escape_markdown
 from .storage import atomic_write, interprocess_file_lock
 
-
 log = logging.getLogger("voicebot.obsidian")
 
 
@@ -28,30 +27,32 @@ class ObsidianSync:
         self._worker_id = uuid.uuid4().hex
 
     def available(self) -> bool:
+        if not self.settings.obsidian_enabled:
+            return False
         path = self.settings.obsidian_vault_path
-        if not path.exists():
+        if path is None or not path.exists():
             return False
         if self.settings.obsidian_require_mount and not os.path.ismount(path):
             return False
         return os.access(path, os.W_OK)
 
     def enqueue(self, memo_id: str) -> None:
+        if not self.settings.obsidian_enabled:
+            return
         self.database.enqueue_outbox(memo_id)
 
     async def flush(self, limit: int = 100) -> int:
+        if not self.settings.obsidian_enabled:
+            return 0
         if not await asyncio.to_thread(self.available):
             return 0
         delivered = 0
         async with self._flush_lock:
             for _ in range(limit):
-                row = await asyncio.to_thread(
-                    self.database.claim_outbox, self._worker_id
-                )
+                row = await asyncio.to_thread(self.database.claim_outbox, self._worker_id)
                 if row is None:
                     break
-                memo = await asyncio.to_thread(
-                    self.database.get_memo, row["memo_id"]
-                )
+                memo = await asyncio.to_thread(self.database.get_memo, row["memo_id"])
                 if memo is None:
                     await asyncio.to_thread(
                         self.database.mark_outbox_delivered,
@@ -101,6 +102,10 @@ class ObsidianSync:
         return delivered
 
     def _deliver(self, memo: Memo) -> None:
+        if not self.settings.obsidian_enabled:
+            raise ObsidianUnavailable("Obsidian sync is disabled")
+        if self.settings.obsidian_vault_path is None or self.settings.obsidian_dir is None:
+            raise ObsidianUnavailable("Obsidian vault is not configured")
         if not self.available():
             raise ObsidianUnavailable("Obsidian vault is unavailable")
         if not memo.summary_json or not memo.transcript:
@@ -122,11 +127,7 @@ class ObsidianSync:
                 return
             if not existing:
                 existing = (
-                    "---\n"
-                    "tags: [journal, voice-memo]\n"
-                    f"date: {date_text}\n"
-                    "---\n\n"
-                    f"# {date_text}\n"
+                    f"---\ntags: [journal, voice-memo]\ndate: {date_text}\n---\n\n# {date_text}\n"
                 )
             summary = SummaryData.from_json(memo.summary_json)
             transcript_lines = "\n".join(
