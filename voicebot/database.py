@@ -593,6 +593,62 @@ class Database:
             rows = connection.execute("SELECT * FROM memos ORDER BY received_at").fetchall()
         return [_memo(row) for row in rows]
 
+    def recent_memos(self, limit: int = 100, status: str | None = None) -> list[Memo]:
+        """Newest memos across all users, for the local dashboard."""
+        limit = max(1, min(int(limit), 500))
+        with self.connect() as connection:
+            if status:
+                rows = connection.execute(
+                    "SELECT * FROM memos WHERE status=? "
+                    "ORDER BY received_at DESC, memo_id DESC LIMIT ?",
+                    (status, limit),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM memos ORDER BY received_at DESC, memo_id DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+        return [_memo(row) for row in rows]
+
+    def search_all(self, query: str, limit: int = 50) -> list[Memo]:
+        """Owner-wide full-text search across transcripts and summaries."""
+        query = " ".join(query.split()).strip()
+        if not query:
+            return []
+        limit = max(1, min(int(limit), 100))
+        with self.connect() as connection:
+            try:
+                tokens = [token.replace('"', '""') for token in query.split()]
+                fts_query = " AND ".join(f'"{token}"' for token in tokens)
+                rows = connection.execute(
+                    """
+                    SELECT m.* FROM memo_fts f
+                    JOIN memos m ON m.memo_id=f.memo_id
+                    WHERE memo_fts MATCH ?
+                    ORDER BY m.received_at DESC LIMIT ?
+                    """,
+                    (fts_query, limit),
+                ).fetchall()
+            except sqlite3.OperationalError:
+                pattern = f"%{query}%"
+                rows = connection.execute(
+                    "SELECT * FROM memos WHERE transcript LIKE ? OR summary_text LIKE ? "
+                    "ORDER BY received_at DESC LIMIT ?",
+                    (pattern, pattern, limit),
+                ).fetchall()
+        return [_memo(row) for row in rows]
+
+    def memo_day_counts(self, limit_days: int = 14) -> list[tuple[str, int]]:
+        """(date, count) pairs for the newest days with memos."""
+        limit_days = max(1, min(int(limit_days), 90))
+        with self.connect() as connection:
+            rows = connection.execute(
+                "SELECT substr(received_at, 1, 10) AS day, count(*) AS count FROM memos "
+                "GROUP BY day ORDER BY day DESC LIMIT ?",
+                (limit_days,),
+            ).fetchall()
+        return [(str(row["day"]), int(row["count"])) for row in rows]
+
     def integrity_check(self) -> str:
         with self.connect() as connection:
             return str(connection.execute("PRAGMA integrity_check").fetchone()[0])

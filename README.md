@@ -124,6 +124,34 @@ Provider/model notes:
 - Model names go stale fast. If your provider renames models, set
   `SUMMARY_MODEL` / `TRANSCRIPTION_MODEL` explicitly and restart.
 
+## Web dashboard (optional)
+
+Serve a local dashboard in the same process — no extra dependencies:
+
+```bash
+uv run python bot.py --dashboard
+```
+
+It prints a URL like `http://127.0.0.1:8080?token=...`. What's inside:
+
+- **Status** — uptime, providers + models, completed/failed counts, Obsidian
+  state, storage usage, memos-per-day chart, recent failures.
+- **History** — searchable memo table (same full-text index as `!search`),
+  memo detail with transcript, structured summary, and audio playback.
+- **Settings** — current config with secrets masked; safe values can be edited
+  and are validated before being written to `.env` (restart applies them —
+  the dashboard shows a banner while disk and running config differ).
+- **Logs** — tail of `voicebot.log` for quick failure triage.
+- **Export** — one-click JSON/CSV download of memos.
+- **`/healthz`** — minimal liveness JSON (no auth, no private data).
+
+Flags: `--dashboard-host` (default `127.0.0.1` — keep it local),
+`--dashboard-port` (default `8080`), `--dashboard-token` (default
+`DASHBOARD_TOKEN` env, else a per-run generated token). Everything except
+`/healthz` requires the token, and request logs redact it. If you bind a
+non-local address, put it behind a reverse proxy with TLS and treat the token
+like a password.
+
 ## Discord commands
 
 All commands work in DMs from authorized users only.
@@ -209,6 +237,7 @@ See [SECURITY.md](SECURITY.md) for the threat model and
 | `bot.py` | Entrypoint: loads config, wires gateway + service + Discord bot |
 | `voicebot/config.py` | `Settings.load()` — validation, provider routing, secret checks |
 | `voicebot/ai.py` | `GroqGateway`, `OpenAIGateway`, `HybridGateway`, `build_gateway()` |
+| `voicebot/dashboard.py` | Optional same-process web dashboard (`--dashboard`) |
 | `voicebot/service.py` | Memo pipeline, checkpoints, retries, concurrency |
 | `voicebot/database.py` | SQLite (WAL, FTS, migrations, outbox) |
 | `voicebot/storage.py` | Atomic file writes, daily indexes |
