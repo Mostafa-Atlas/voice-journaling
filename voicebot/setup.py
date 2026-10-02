@@ -24,10 +24,15 @@ from collections.abc import Callable
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from . import __version__
 from .config import SUPPORTED_PROVIDERS, ConfigurationError, is_placeholder
 from .dashboard import read_env_file, write_env_updates
 
 log = logging.getLogger("voicebot.setup")
+
+# Discord's edge blocks Python's default "Python-urllib/x.y" user-agent with
+# HTTP 403, which looks identical to a bad token. Identify honestly instead.
+USER_AGENT = f"voice-journaling-bot/{__version__}"
 
 # View Channel + Send Messages + Read Message History + Attach Files.
 INVITE_PERMISSIONS = 101376
@@ -79,7 +84,9 @@ def validate_timezone_name(raw: str) -> str:
 def _https_get(
     url: str, token: str, timeout: float = 10.0, scheme: str = "Bearer"
 ) -> tuple[int, str]:
-    request = urllib.request.Request(url, headers={"Authorization": f"{scheme} {token}"})
+    request = urllib.request.Request(
+        url, headers={"Authorization": f"{scheme} {token}", "User-Agent": USER_AGENT}
+    )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return response.status, response.read(2048).decode("utf-8", errors="replace")
@@ -102,8 +109,10 @@ def check_discord_token(token: str) -> tuple[bool, str]:
         except ValueError:
             name = "bot"
         return True, f"valid (bot user: {name})"
-    if status in (401, 403):
-        return False, "Discord rejected the token (401/403); check for typos"
+    if status == 401:
+        return False, "Discord rejected the token (401); check for typos"
+    if status == 403:
+        return False, "Discord refused the request (403); the token may lack access"
     return False, f"Discord returned HTTP {status}; try again later"
 
 
@@ -121,8 +130,10 @@ def check_provider_key(provider: str, key: str) -> tuple[bool, str]:
         return False, f"unknown provider: {provider}"
     if status == 200:
         return True, "valid"
-    if status in (401, 403):
-        return False, "provider rejected the key (401/403); check for typos"
+    if status == 401:
+        return False, "provider rejected the key (401); check for typos"
+    if status == 403:
+        return False, "provider refused the request (403); check the key's permissions"
     return False, f"provider returned HTTP {status}; try again later"
 
 

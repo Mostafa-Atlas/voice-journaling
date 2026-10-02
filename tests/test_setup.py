@@ -170,9 +170,10 @@ class SetupWizardTests(unittest.TestCase):
 
 
 class AuthSchemeTests(unittest.TestCase):
-    """Discord bots use 'Bot', providers use 'Bearer' (regression test)."""
+    """Discord bots use 'Bot', providers use 'Bearer', and every probe
+    identifies with our own User-Agent (Discord's edge 403s Python-urllib)."""
 
-    def _capture_auth(self, check, *args):
+    def _capture_headers(self, check, *args):
         import urllib.request
         from unittest.mock import patch
 
@@ -192,23 +193,37 @@ class AuthSchemeTests(unittest.TestCase):
 
         def fake_urlopen(request: object, timeout: float | None = None) -> FakeResponse:
             captured["auth"] = request.get_header("Authorization")  # type: ignore[union-attr]
+            captured["ua"] = request.get_header("User-agent")  # type: ignore[union-attr]
             return FakeResponse()
 
         with patch.object(urllib.request, "urlopen", fake_urlopen):
             ok, detail = check(*args)
-        return ok, detail, captured.get("auth", "")
+        return ok, detail, captured
 
     def test_discord_uses_bot_scheme(self):
-        ok, detail, auth = self._capture_auth(check_discord_token, "some-token-value")
+        ok, detail, headers = self._capture_headers(check_discord_token, "some-token-value")
         self.assertTrue(ok, detail)
-        self.assertEqual(auth, "Bot some-token-value")
+        self.assertEqual(headers["auth"], "Bot some-token-value")
         self.assertIn("testbot", detail)
 
     def test_providers_use_bearer_scheme(self):
         for provider in ("groq", "openai"):
-            ok, detail, auth = self._capture_auth(check_provider_key, provider, "key-value")
+            ok, detail, headers = self._capture_headers(check_provider_key, provider, "key-value")
             self.assertTrue(ok, detail)
-            self.assertEqual(auth, "Bearer key-value")
+            self.assertEqual(headers["auth"], "Bearer key-value")
+
+    def test_probes_identify_with_project_user_agent(self):
+        from voicebot.setup import USER_AGENT
+
+        for check, args in (
+            (check_discord_token, ("some-token-value",)),
+            (check_provider_key, ("groq", "key-value")),
+        ):
+            _, _, headers = self._capture_headers(check, *args)
+            self.assertTrue(headers["ua"])
+            self.assertFalse(headers["ua"].startswith("Python-urllib"))
+            self.assertIn("voice-journaling-bot", headers["ua"])
+            self.assertEqual(headers["ua"], USER_AGENT)
 
 
 if __name__ == "__main__":
