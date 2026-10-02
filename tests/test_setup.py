@@ -9,6 +9,8 @@ from pathlib import Path
 from voicebot.config import ConfigurationError
 from voicebot.setup import (
     build_invite_url,
+    check_discord_token,
+    check_provider_key,
     run_setup,
     validate_timezone_name,
     validate_token_shape,
@@ -139,6 +141,48 @@ class SetupWizardTests(unittest.TestCase):
                 non_interactive=True,
                 skip_validation=True,
             )
+
+
+class AuthSchemeTests(unittest.TestCase):
+    """Discord bots use 'Bot', providers use 'Bearer' (regression test)."""
+
+    def _capture_auth(self, check, *args):
+        import urllib.request
+        from unittest.mock import patch
+
+        captured: dict[str, str] = {}
+
+        class FakeResponse:
+            status = 200
+
+            def read(self, _n: int = -1) -> bytes:
+                return b'{"username": "testbot"}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc: object) -> bool:
+                return False
+
+        def fake_urlopen(request: object, timeout: float | None = None) -> FakeResponse:
+            captured["auth"] = request.get_header("Authorization")  # type: ignore[union-attr]
+            return FakeResponse()
+
+        with patch.object(urllib.request, "urlopen", fake_urlopen):
+            ok, detail = check(*args)
+        return ok, detail, captured.get("auth", "")
+
+    def test_discord_uses_bot_scheme(self):
+        ok, detail, auth = self._capture_auth(check_discord_token, "some-token-value")
+        self.assertTrue(ok, detail)
+        self.assertEqual(auth, "Bot some-token-value")
+        self.assertIn("testbot", detail)
+
+    def test_providers_use_bearer_scheme(self):
+        for provider in ("groq", "openai"):
+            ok, detail, auth = self._capture_auth(check_provider_key, provider, "key-value")
+            self.assertTrue(ok, detail)
+            self.assertEqual(auth, "Bearer key-value")
 
 
 if __name__ == "__main__":

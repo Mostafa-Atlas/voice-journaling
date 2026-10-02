@@ -76,8 +76,10 @@ def validate_timezone_name(raw: str) -> str:
     return cleaned
 
 
-def _https_get(url: str, token: str, timeout: float = 10.0) -> tuple[int, str]:
-    request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+def _https_get(
+    url: str, token: str, timeout: float = 10.0, scheme: str = "Bearer"
+) -> tuple[int, str]:
+    request = urllib.request.Request(url, headers={"Authorization": f"{scheme} {token}"})
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return response.status, response.read(2048).decode("utf-8", errors="replace")
@@ -89,8 +91,9 @@ def _https_get(url: str, token: str, timeout: float = 10.0) -> tuple[int, str]:
 
 def check_discord_token(token: str) -> tuple[bool, str]:
     """Validate a bot token against Discord. Returns (ok, detail)."""
+    # Discord bot tokens use the "Bot" scheme; "Bearer" is for OAuth2 tokens.
     try:
-        status, body = _https_get("https://discord.com/api/v10/users/@me", token)
+        status, body = _https_get("https://discord.com/api/v10/users/@me", token, scheme="Bot")
     except ConfigurationError as exc:
         return False, str(exc)
     if status == 200:
