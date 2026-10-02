@@ -63,6 +63,10 @@ DM the bot an audio file (`.ogg .mp3 .wav .m4a .webm .flac .mp4 .mpeg .mpga`,
 default max 25 MB). It replies `⏳ Received…`, edits the message through each
 stage, then `✅ Memo … saved` with a summary teaser.
 
+Only one copy may run per data directory: a second start exits immediately
+with a clear error instead of both copies killing each other's Discord
+sessions. Hunt strays with `ps aux | grep bot.py` / `systemctl status voicebot`.
+
 Manual alternative (any OS with `uv`): `uv sync`, copy `.env.example` to
 `.env`, fill in `DISCORD_TOKEN`, one provider key, and `ALLOWED_USER_IDS`,
 then `uv run voicebot doctor`.

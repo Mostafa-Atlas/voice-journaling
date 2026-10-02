@@ -65,6 +65,14 @@ def main(argv: list[str] | None = None) -> int:
 
     configure_logging(settings)
     log = logging.getLogger("voicebot")
+    from voicebot.lock import AlreadyRunningError, ProcessLock
+
+    try:
+        # Held (not read) for the whole process lifetime: it is the guard.
+        _bot_lock = ProcessLock(settings.data_root / "voicebot.lock").acquire()
+    except AlreadyRunningError as exc:
+        log.error("cannot start: %s", exc)
+        return 1
     dashboard_token = ""
     if args.dashboard:
         from voicebot.dashboard import (
