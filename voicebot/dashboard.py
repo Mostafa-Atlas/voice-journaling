@@ -83,41 +83,163 @@ EDITABLE_SETTINGS: tuple[tuple[str, str, str], ...] = (
 SECRET_KEYS = ("DISCORD_TOKEN", "GROQ_API_KEY", "OPENAI_API_KEY")
 
 CSS = """
-:root{color-scheme:dark}*{box-sizing:border-box}
-body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0d1117;
-color:#e6edf3;margin:0;padding:0 16px 48px}
-a{color:#58a6ff}nav{background:#161b22;border-bottom:1px solid #30363d;padding:12px 16px;
-margin:0 -16px 20px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
-nav b{font-size:17px}nav span.ver{color:#8b949e;font-size:12px}
+:root{
+  color-scheme:dark;
+  --bg:#090d13; --panel:#111823; --panel-2:#151e2c; --inset:#0b1018;
+  --border:#26314a; --border-soft:#1a2334;
+  --text:#e9eff7; --muted:#93a1b8; --faint:#5f6f88;
+  --accent:#3fb950; --accent-2:#39c5cf; --link:#6cb6ff;
+  --danger:#f85149; --warn:#d29922; --info:#58a6ff; --violet:#bc8cff;
+  --radius:14px; --radius-s:9px;
+  --shadow:0 10px 28px rgba(0,0,0,.38);
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scrollbar-color:#2c3a52 var(--bg)}
+body{font-family:var(--font);background:var(--bg);color:var(--text);
+margin:0;padding:0 20px 64px;line-height:1.55;
+background-image:radial-gradient(900px 320px at 15% -80px,rgba(63,185,80,.10),transparent 60%),
+radial-gradient(800px 300px at 85% -60px,rgba(57,197,207,.08),transparent 60%);}
+::selection{background:rgba(88,166,255,.35)}
+a{color:var(--link);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--mono);font-size:.86em;background:#1b2536;
+border:1px solid var(--border-soft);border-radius:6px;padding:1px 6px}
+/* ---- nav ---- */
+nav{position:sticky;top:0;z-index:50;background:rgba(13,18,28,.82);
+backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+border-bottom:1px solid var(--border-soft);padding:12px 20px;margin:0 -20px 28px;
+display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;
+margin-right:14px;color:var(--text)}
+.brand .dot{width:11px;height:11px;border-radius:50%;
+background:linear-gradient(135deg,var(--accent),var(--accent-2));
+box-shadow:0 0 12px rgba(63,185,80,.7)}
+.brand .ver{color:var(--faint);font-size:12px;font-weight:500}
+nav a.navlink{color:var(--muted);font-size:14px;font-weight:550;padding:7px 13px;
+border-radius:999px;border:1px solid transparent;transition:all .15s ease}
+nav a.navlink:hover{color:var(--text);background:#1a2334;text-decoration:none}
+nav a.navlink[aria-current="page"]{color:var(--text);background:#1c2942;
+border-color:var(--border)}
+nav .spacer{flex:1}
+/* ---- layout ---- */
 .wrap{max-width:1080px;margin:0 auto}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:16px 0}
-.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 14px}
-.card h3{margin:0 0 8px;font-size:14px;color:#8b949e;text-transform:uppercase;letter-spacing:.04em}
-.card .big{font-size:22px;font-weight:650}
-table{width:100%;border-collapse:collapse;background:#161b22;border:1px solid #30363d;border-radius:8px;overflow:hidden}
-th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #21262d;font-size:14px;vertical-align:top}
-th{color:#8b949e;font-weight:600}
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#21262d}
-.badge.completed{background:#1a472a}.badge.failed{background:#5c1a1a}
-.badge.transcribed,.badge.summarized,.badge.audio_saved{background:#3b2f0b}
-.banner{background:#3b2f0b;border:1px solid #9e6a03;border-radius:8px;padding:10px 14px;margin:12px 0}
-.banner.ok{background:#0f2f1c;border-color:#1f6f43}
-.banner.err{background:#3d1414;border-color:#8c1d1d}
-form.inline{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
-input[type=text],input[type=number],select,textarea{background:#0d1117;color:#e6edf3;
-border:1px solid #30363d;border-radius:6px;padding:8px 10px;font-size:14px}
-input[type=text]{min-width:280px}button{background:#238636;color:#fff;border:0;border-radius:6px;
-padding:8px 14px;font-size:14px;cursor:pointer}button:hover{background:#2ea043}
-pre{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;overflow:auto;
-font-size:13px;white-space:pre-wrap}
-.bars{display:flex;align-items:flex-end;gap:6px;height:110px;margin:8px 0}
-.bar{flex:1;background:#1f6f43;border-radius:4px 4px 0 0;min-height:4px;position:relative}
-.bar span{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:10px;color:#8b949e}
-.muted{color:#8b949e;font-size:13px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media(max-width:760px){.grid2{grid-template-columns:1fr}}
-label.set{display:block;margin:10px 0}label.set small{color:#8b949e;display:block}
-audio{width:100%;margin:8px 0}
+.pagehead{margin:4px 0 18px}
+.pagehead h1{font-size:30px;margin:0;letter-spacing:-.02em}
+.lede{color:var(--muted);margin:6px 0 0;font-size:15px}
+h1{font-size:28px;letter-spacing:-.02em;margin:6px 0 4px}
+h2{font-size:18px;margin:30px 0 12px;letter-spacing:-.01em}
+h3{font-size:15px;margin:0 0 10px}
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--border-soft);
+color:var(--faint);font-size:12.5px;display:flex;gap:8px;flex-wrap:wrap}
+/* ---- cards ---- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+gap:14px;margin:18px 0 6px}
+.card{position:relative;background:linear-gradient(180deg,var(--panel-2),var(--panel));
+border:1px solid var(--border-soft);border-radius:var(--radius);padding:16px 18px;
+box-shadow:var(--shadow);overflow:hidden;transition:transform .15s ease,border-color .15s ease}
+.card:hover{transform:translateY(-2px);border-color:var(--border)}
+.card::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;
+background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+.card--providers::before{background:linear-gradient(90deg,var(--info),var(--violet))}
+.card--memos::before{background:linear-gradient(90deg,var(--warn),#f778ba)}
+.card--obsidian::before{background:linear-gradient(90deg,var(--violet),var(--info))}
+.card--storage::before{background:linear-gradient(90deg,var(--accent-2),var(--accent))}
+.card h3{font-size:12px;color:var(--muted);text-transform:uppercase;
+letter-spacing:.09em;font-weight:650}
+.card .big{font-size:24px;font-weight:700;letter-spacing:-.01em}
+/* ---- panels & prose ---- */
+.panel{background:linear-gradient(180deg,var(--panel-2),var(--panel));
+border:1px solid var(--border-soft);border-radius:var(--radius);padding:18px 20px;
+margin:16px 0;box-shadow:var(--shadow)}
+.panel h3{color:var(--muted);font-size:12.5px;text-transform:uppercase;letter-spacing:.08em}
+.prose p{margin:8px 0 14px;font-size:15px}
+.prose ul{margin:8px 0 16px;padding-left:22px}
+.prose li{margin:5px 0}
+.prose li::marker{color:var(--accent)}
+.meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--muted);
+font-size:13.5px;margin:10px 0 4px}
+.meta .chip{background:#1b2536;border:1px solid var(--border-soft);border-radius:999px;
+padding:2px 11px;font-size:12.5px}
+/* ---- tables ---- */
+.table-wrap{overflow-x:auto;border:1px solid var(--border-soft);border-radius:var(--radius);
+background:var(--panel);box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;min-width:640px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border-soft);
+font-size:14px;vertical-align:top}
+thead th,table tr:first-child th{position:sticky;top:0;background:#182134;color:var(--muted);
+font-weight:650;font-size:12px;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+tbody tr,table tr:last-child td{border-bottom:0}
+tbody tr:hover,table tr:hover td{background:rgba(88,166,255,.05)}
+td.mono{font-family:var(--mono);font-size:12.5px}
+/* ---- badges ---- */
+.badge{display:inline-flex;align-items:center;gap:6px;padding:3px 11px 3px 9px;
+border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;
+background:#212b3d;color:#c6d2e3;border:1px solid var(--border)}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.badge.completed{background:rgba(63,185,80,.13);color:#56d364;border-color:rgba(63,185,80,.4)}
+.badge.failed{background:rgba(248,81,73,.13);color:#ff7b72;border-color:rgba(248,81,73,.4)}
+.badge.received{background:rgba(88,166,255,.13);color:#79c0ff;border-color:rgba(88,166,255,.4)}
+.badge.audio_saved{background:rgba(188,140,255,.14);color:#d2a8ff;border-color:rgba(188,140,255,.4)}
+.badge.transcribed,.badge.summarized{background:rgba(210,153,34,.15);color:#e3b341;
+border-color:rgba(210,153,34,.45)}
+.badge.artifacts_written{background:rgba(57,197,207,.13);color:#56d4dd;
+border-color:rgba(57,197,207,.4)}
+/* ---- banners ---- */
+.banner{background:#1c1a12;border:1px solid #6b5518;border-left:4px solid var(--warn);
+border-radius:var(--radius-s);padding:12px 16px;margin:14px 0;font-size:14px}
+.banner.ok{background:#0d2117;border-color:#1f6f43;border-left-color:var(--accent)}
+.banner.err{background:#2a1215;border-color:#8c1d1d;border-left-color:var(--danger)}
+/* ---- forms ---- */
+form.inline{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;align-items:center}
+input[type=text],input[type=number],select,textarea{background:var(--inset);color:var(--text);
+border:1px solid var(--border);border-radius:var(--radius-s);padding:9px 12px;font-size:14px;
+font-family:inherit;transition:border-color .15s ease,box-shadow .15s ease;max-width:100%}
+input[type=text]{min-width:min(280px,100%)}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,
+a:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+input:hover,select:hover,textarea:hover{border-color:#35456a}
+select{appearance:none;-webkit-appearance:none;padding-right:32px;cursor:pointer;
+background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2393a1b8' fill='none' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+background-repeat:no-repeat;background-position:right 12px center}
+button{background:linear-gradient(180deg,#2ea043,#238636);color:#fff;border:1px solid #2ea043;
+border-radius:var(--radius-s);padding:9px 18px;font-size:14px;font-weight:600;cursor:pointer;
+box-shadow:0 2px 10px rgba(46,160,67,.35);transition:transform .1s ease,box-shadow .15s ease,filter .15s ease}
+button:hover{filter:brightness(1.1);box-shadow:0 4px 16px rgba(46,160,67,.45)}
+button:active{transform:translateY(1px)}
+.set-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin:6px 0 8px}
+label.set{display:block;margin:12px 0}
+label.set>span.lbl{display:block;font-weight:600;font-size:14px}
+label.set small{color:var(--muted);display:block;margin:2px 0 7px;font-family:var(--mono);font-size:12px}
+label.set input,label.set select{width:100%}
+/* ---- misc ---- */
+pre{background:var(--inset);border:1px solid var(--border-soft);border-radius:var(--radius);
+padding:14px 16px;overflow:auto;font-size:13px;line-height:1.6;white-space:pre-wrap;
+font-family:var(--mono)}
+pre.logs{max-height:62vh}
+.bars{display:flex;align-items:flex-end;gap:8px;height:130px;margin:10px 0 30px;
+padding:14px 16px 30px;background:var(--panel);border:1px solid var(--border-soft);
+border-radius:var(--radius)}
+.bar{flex:1;background:linear-gradient(180deg,#3fb950,#1f6f43);border-radius:5px 5px 2px 2px;
+min-height:5px;position:relative;min-width:8px;transition:filter .15s ease}
+.bar:hover{filter:brightness(1.25)}
+.bar span{position:absolute;bottom:-24px;left:50%;transform:translateX(-50%);font-size:10.5px;
+color:var(--faint);white-space:nowrap}
+.muted{color:var(--muted);font-size:13px}
+audio{width:100%;margin:10px 0 4px;accent-color:var(--accent);border-radius:var(--radius-s)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#2c3a52;border-radius:8px;border:2px solid var(--bg)}
+::-webkit-scrollbar-track{background:transparent}
+@media(max-width:860px){.set-grid{grid-template-columns:1fr}}
+@media(max-width:640px){
+  body{padding:0 12px 48px}
+  nav{margin:0 -12px 20px;padding:10px 12px}
+  .pagehead h1,h1{font-size:23px}
+  .card .big{font-size:20px}
+  input[type=text]{min-width:0;flex:1}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none !important}}
 """
 
 
@@ -412,15 +534,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if query.get("error"):
             banner += f'<div class="banner err">{esc(query["error"])}</div>'
         qs = self._token_qs(query)
-        return f"""<!doctype html><html><head><meta charset="utf-8">
+        current = {
+            "Status": "/",
+            "Memo": "/history",
+            "History": "/history",
+            "Settings": "/settings",
+            "Logs": "/logs",
+        }.get(title, "/")
+        links = []
+        for label, href in (
+            ("Status", "/"),
+            ("History", "/history"),
+            ("Settings", "/settings"),
+            ("Logs", "/logs"),
+        ):
+            mark = ' aria-current="page"' if href == current else ""
+            links.append(f'<a class="navlink" href="{href}?{qs}"{mark}>{label}</a>')
+        navlinks = "".join(links)
+        return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{esc(title)} · voicebot</title><style>{CSS}</style></head><body>
-<nav><b>voicebot</b><span class="ver">v{esc(__version__)}</span>
-<a href="/?{qs}">Status</a><a href="/history?{qs}">History</a>
-<a href="/settings?{qs}">Settings</a><a href="/logs?{qs}">Logs</a>
-<a href="/export?format=json&{qs}">Export JSON</a>
-<a href="/export?format=csv&{qs}">Export CSV</a></nav>
-<div class="wrap">{banner}{body}</div></body></html>"""
+<nav aria-label="Dashboard"><span class="brand"><span class="dot"></span>voicebot
+<span class="ver">v{esc(__version__)}</span></span>{navlinks}<span class="spacer"></span>
+<a class="navlink" href="/export?format=json&{qs}">Export JSON</a>
+<a class="navlink" href="/export?format=csv&{qs}">Export CSV</a></nav>
+<div class="wrap">{banner}{body}
+<footer><span>voicebot v{esc(__version__)}</span><span>·</span>
+<span>local-only dashboard — your audio never leaves this machine except to your AI provider</span></footer></div></body></html>"""
 
     def _restart_button(self, query: dict[str, str]) -> str:
         return (
@@ -456,7 +596,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         days = stats["per_day"][::-1]
         peak = max((count for _, count in days), default=0)
         bars = "".join(
-            f'<div class="bar" style="height:{100 * count // peak if peak else 4}%">'
+            f'<div class="bar" style="height:{100 * count // peak if peak else 4}%"'
+            f' title="{esc(day)}: {count} memo(s)">'
             f"<span>{esc(day[5:])}</span></div>"
             for day, count in days
         )
@@ -469,24 +610,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 for m in failures
             )
             fail_html = (
-                "<h2>Recent failures</h2><table><tr><th>Memo</th><th>Received</th>"
-                f"<th>Stage</th></tr>{fail_rows}</table>"
+                '<h2>Recent failures</h2><div class="table-wrap"><table>'
+                "<tr><th>Memo</th><th>Received</th>"
+                f"<th>Stage</th></tr>{fail_rows}</table></div>"
                 '<p class="muted">Resume from Discord with '
                 "<code>!retry &lt;memo-id&gt;</code>.</p>"
             )
         else:
             fail_html = "<h2>Recent failures</h2><p class='muted'>None. All clear.</p>"
         return f"""
-<h1>Status</h1>
+<div class="pagehead"><h1>Status</h1>
+<p class="lede">Live health of your voice journal.</p></div>
 <div class="cards">
-<div class="card"><h3>Bot</h3><div class="big">{hours}h {minutes}m</div>
+<div class="card card--bot"><h3>Bot</h3><div class="big">{hours}h {minutes}m</div>
 <div class="muted">uptime · in flight: {stats["in_flight"]} · DB: {esc(stats["integrity"])}</div></div>
-<div class="card"><h3>Providers</h3><div class="big">{esc(settings.stt_provider)} / {esc(settings.summary_provider)}</div>
+<div class="card card--providers"><h3>Providers</h3><div class="big">{esc(settings.stt_provider)} / {esc(settings.summary_provider)}</div>
 <div class="muted">STT: {esc(settings.transcription_model)}<br>Summary: {esc(settings.summary_model)}</div></div>
-<div class="card"><h3>Memos</h3><div class="big">{completed} ✓ · {failed} ✗</div>
+<div class="card card--memos"><h3>Memos</h3><div class="big">{completed} ✓ · {failed} ✗</div>
 <div class="muted">total: {stats["total"]} · last completed: {last_text}</div></div>
-<div class="card"><h3>Obsidian</h3><div>{obsidian_line}</div></div>
-<div class="card"><h3>Storage</h3><div class="big">{stats["audio_mb"]:.1f} MB</div>
+<div class="card card--obsidian"><h3>Obsidian</h3><div>{obsidian_line}</div></div>
+<div class="card card--storage"><h3>Storage</h3><div class="big">{stats["audio_mb"]:.1f} MB</div>
 <div class="muted">{stats["audio_files"]} audio files · DB {stats["db_kb"]:.0f} KB</div></div>
 </div>
 <h2>Memos per day (14 days)</h2><div class="bars">{bars or "<span class=muted>No memos yet.</span>"}</div>
@@ -514,16 +657,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             for m in memos
         )
         return f"""
-<h1>History</h1>
+<div class="pagehead"><h1>History</h1>
+<p class="lede">Search across every transcript and summary.</p></div>
 <form class="inline" method="get" action="/history">
 <input type="hidden" name="token" value="{esc(query.get("token", self.token))}">
 <input type="text" name="q" placeholder="Search transcripts & summaries…" value="{esc(term)}">
-<select name="status"><option value="">all statuses</option>
+<select name="status" aria-label="Filter by status"><option value="">all statuses</option>
 {"".join(f'<option value="{s}"{" selected" if status == s else ""}>{s}</option>' for s in ("completed", "failed", "received", "audio_saved", "transcribed", "summarized", "artifacts_written"))}
 </select><button type="submit">Search</button></form>
 <h2>{heading}</h2>
-<table><tr><th>Memo</th><th>Received</th><th>User</th><th>File</th><th>Status</th><th>Teaser</th></tr>
-{rows or '<tr><td colspan="6" class="muted">No memos found.</td></tr>'}</table>"""
+<div class="table-wrap"><table><tr><th>Memo</th><th>Received</th><th>User</th><th>File</th><th>Status</th><th>Teaser</th></tr>
+{rows or '<tr><td colspan="6" class="muted">No memos found.</td></tr>'}</table></div>"""
 
     def _memo_detail(self, query: dict[str, str]) -> str:
         dash = self.dashboard
@@ -537,7 +681,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except ValueError:
             summary = None
         if summary is not None:
-            parts = [f"<h3>Summary</h3><p>{esc(summary.summary)}</p>"]
+            parts = [f'<section class="panel prose"><h3>Summary</h3><p>{esc(summary.summary)}</p>']
             for title, values in (
                 ("Key points", summary.key_points),
                 ("Decisions", summary.decisions),
@@ -554,6 +698,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     for i in summary.action_items
                 )
                 parts.append(f"<h3>Action items</h3><ul>{items}</ul>")
+            parts.append("</section>")
             summary_html = "".join(parts)
         else:
             summary_html = "<p class='muted'>No summary yet.</p>"
@@ -562,19 +707,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
             try:
                 dash.storage.resolve(memo.audio_path)
                 audio_html = (
-                    '<h3>Audio</h3><audio controls preload="none" '
-                    f'src="/audio?id={esc(memo.memo_id)}&{qs}"></audio>'
+                    '<section class="panel"><h3>Audio</h3><audio controls preload="none" '
+                    f'src="/audio?id={esc(memo.memo_id)}&{qs}"></audio></section>'
                 )
             except ValueError:
                 audio_html = "<p class='muted'>Audio file is missing.</p>"
         sync = dash.database.outbox_status(memo.memo_id)
+        chips = "".join(
+            f'<span class="chip">{esc(text)}</span>'
+            for text in (
+                memo.received_at[:19],
+                memo.username,
+                Path(memo.original_filename).name,
+                f"{memo.attempt_count} attempt(s)",
+                f"obsidian: {sync or 'n/a'}",
+            )
+        )
         return f"""
-<h1><span class="badge {esc(memo.status)}">{esc(memo.status)}</span> {esc(memo.memo_id)}</h1>
-<p class="muted">{esc(memo.received_at)} · {esc(memo.username)} ·
-{esc(Path(memo.original_filename).name)} ·
-attempts: {memo.attempt_count} · obsidian: {esc(sync or "n/a")}</p>
+<div class="pagehead"><p><span class="badge {esc(memo.status)}">{esc(memo.status)}</span></p>
+<h1 class="memoid">{esc(memo.memo_id)}</h1></div>
+<div class="meta">{chips}</div>
 {audio_html}{summary_html}
-<h3>Transcript</h3><pre>{esc(memo.transcript or "No transcript yet.")}</pre>"""
+<section class="panel"><h3>Transcript</h3>
+<pre>{esc(memo.transcript or "No transcript yet.")}</pre></section>"""
 
     def _settings(self, query: dict[str, str]) -> str:
         dash = self.dashboard
@@ -595,28 +750,29 @@ attempts: {memo.attempt_count} · obsidian: {esc(sync or "n/a")}</p>
                 )
                 control = f'<select name="{key}">{options}</select>'
             else:
-                control = (
-                    f'<input type="text" name="{key}" value="{esc(current)}" '
-                    'style="min-width:340px">'
-                )
-            rows += f'<label class="set">{esc(label)}<small>{esc(key)}</small>{control}</label>'
+                control = f'<input type="text" name="{key}" value="{esc(current)}">'
+            rows += (
+                f'<label class="set"><span class="lbl">{esc(label)}</span>'
+                f"<small>{esc(key)}</small>{control}</label>"
+            )
         secrets = "".join(
             f"<tr><td><code>{key}</code></td><td>"
             f"{'•••••• (set)' if getattr(dash.settings, key.lower()) else '(not set)'}</td></tr>"
             for key in SECRET_KEYS
         )
         return f"""
-<h1>Settings</h1>
-<p class="muted">Secrets are managed in <code>.env</code> and never shown here.
-Edits below are validated and written to <code>.env</code>; the bot restarts
-itself to apply them (or use Restart below).</p>
+<div class="pagehead"><h1>Settings</h1>
+<p class="lede">Tune the bot. Changes are validated, saved to <code>.env</code>,
+and applied on restart.</p></div>
+<p class="muted">Secrets are managed in <code>.env</code> and never shown here.</p>
 <form method="post" action="/settings?{self._token_qs(query)}">
 <input type="hidden" name="token" value="{esc(query.get("token", self.token))}">
-{rows}<button type="submit">Save settings</button></form>
+<div class="set-grid">{rows}</div><button type="submit">Save settings</button></form>
 <h2>Restart</h2><p class="muted">Apply the current <code>.env</code> now
 (the bot also restarts itself when it changes).</p>
 {self._restart_button(query)}
-<h2>Secrets (masked)</h2><table><tr><th>Key</th><th>State</th></tr>{secrets}</table>"""
+<h2>Secrets (masked)</h2>
+<div class="table-wrap"><table><tr><th>Key</th><th>State</th></tr>{secrets}</table></div>"""
 
     def _logs(self, query: dict[str, str]) -> str:
         dash = self.dashboard
@@ -631,9 +787,11 @@ itself to apply them (or use Restart below).</p>
         except OSError:
             return "<h1>Logs</h1><p class='muted'>No log file yet.</p>"
         return (
-            "<h1>Logs</h1><p class='muted'>Last "
+            '<div class="pagehead"><h1>Logs</h1>'
+            '<p class="lede">Recent bot activity for quick triage.</p></div>'
+            "<p class='muted'>Last "
             f"{len(lines)} lines of <code>{esc(path.name)}</code>.</p>"
-            f"<pre>{esc(''.join(lines))}</pre>"
+            f"<pre class='logs'>{esc(''.join(lines))}</pre>"
         )
 
     # -- routing ---------------------------------------------------------
