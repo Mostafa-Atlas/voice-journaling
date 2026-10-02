@@ -142,6 +142,32 @@ class SetupWizardTests(unittest.TestCase):
                 skip_validation=True,
             )
 
+    def test_stale_placeholder_for_unused_provider_is_cleared(self):
+        (self.root / ".env").write_text("OPENAI_API_KEY=<replace-me>\n", encoding="utf-8")
+        run_setup(
+            self.root,
+            discord_token="discord-token-value",
+            provider="groq",
+            provider_key="groq-key-value",
+            owner_id="789",
+            non_interactive=True,
+            skip_validation=True,
+        )
+        self.assertEqual(self._env_values().get("OPENAI_API_KEY"), "")
+
+    def test_real_key_for_unused_provider_is_kept(self):
+        (self.root / ".env").write_text("OPENAI_API_KEY=real-openai-key-value\n", encoding="utf-8")
+        run_setup(
+            self.root,
+            discord_token="discord-token-value",
+            provider="groq",
+            provider_key="groq-key-value",
+            owner_id="789",
+            non_interactive=True,
+            skip_validation=True,
+        )
+        self.assertEqual(self._env_values().get("OPENAI_API_KEY"), "real-openai-key-value")
+
 
 class AuthSchemeTests(unittest.TestCase):
     """Discord bots use 'Bot', providers use 'Bearer' (regression test)."""

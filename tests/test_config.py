@@ -125,6 +125,31 @@ class SettingsTests(unittest.TestCase):
                 }
             )
 
+    def test_unused_provider_placeholder_is_ignored(self):
+        settings = Settings.load(
+            {
+                "DISCORD_TOKEN": "token",
+                "GROQ_API_KEY": "key",
+                "OPENAI_API_KEY": "<replace-me>",
+                "ALLOWED_USER_IDS": "123",
+                "STT_PROVIDER": "groq",
+                "SUMMARY_PROVIDER": "groq",
+            }
+        )
+        self.assertEqual(settings.openai_api_key, "")
+
+    def test_required_provider_placeholder_still_rejected(self):
+        with self.assertRaisesRegex(ConfigurationError, "placeholder"):
+            Settings.load(
+                {
+                    "DISCORD_TOKEN": "token",
+                    "GROQ_API_KEY": "<replace-me>",
+                    "ALLOWED_USER_IDS": "123",
+                    "STT_PROVIDER": "groq",
+                    "SUMMARY_PROVIDER": "groq",
+                }
+            )
+
     def test_redacted_summary_never_contains_secrets(self):
         settings = Settings.load(
             {

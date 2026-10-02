@@ -24,7 +24,7 @@ from collections.abc import Callable
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .config import SUPPORTED_PROVIDERS, ConfigurationError
+from .config import SUPPORTED_PROVIDERS, ConfigurationError, is_placeholder
 from .dashboard import read_env_file, write_env_updates
 
 log = logging.getLogger("voicebot.setup")
@@ -248,6 +248,12 @@ def run_setup(
         "ALLOWED_USER_IDS": owner,
         "TIMEZONE": timezone,
     }
+    # Clear a stale template value for the provider that is NOT enabled, so a
+    # leftover "<replace-me>" line never trips validation. A real key is kept.
+    other_name = "OPENAI_API_KEY" if raw_provider == "groq" else "GROQ_API_KEY"
+    other_existing = existing.get(other_name, "").strip().strip("'\"")
+    if other_existing and is_placeholder(other_existing):
+        updates[other_name] = ""
     write_env_updates(project_root / ".env", updates)
     print(f"\nWrote {(project_root / '.env')} (mode 0600 where supported).")
 

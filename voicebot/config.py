@@ -196,17 +196,27 @@ def _provider(getter: object, name: str, default: str) -> str:  # type: ignore[t
     return value
 
 
+def is_placeholder(value: str) -> bool:
+    """True for obvious non-secret template values like ``<replace-me>``."""
+    return any(marker in value.lower() for marker in _PLACEHOLDER_MARKERS)
+
+
 def _secret(getter: object, name: str, *, required: bool) -> str:  # type: ignore[type-arg]
     value = _raw(getter, name, "").strip().strip("'\"")
     if not value:
         if required:
             raise ConfigurationError(f"{name} is required")
         return ""
-    lowered = value.lower()
-    if any(marker in lowered for marker in _PLACEHOLDER_MARKERS):
-        raise ConfigurationError(f"{name} looks like a placeholder; set a real value")
+    if is_placeholder(value):
+        # A leftover template value for a provider that is not enabled is
+        # simply ignored; only a *required* key must be real.
+        if required:
+            raise ConfigurationError(f"{name} looks like a placeholder; set a real value")
+        return ""
     if any(char.isspace() for char in value):
-        raise ConfigurationError(f"{name} must not contain whitespace")
+        if required:
+            raise ConfigurationError(f"{name} must not contain whitespace")
+        return ""
     return value
 
 
