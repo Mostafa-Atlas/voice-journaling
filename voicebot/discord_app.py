@@ -25,7 +25,11 @@ def startup_failure_hint() -> str:
         "DISCORD_TOKEN is invalid or was reset after being copied: run "
         "`uv run voicebot setup` with a fresh Bot token (Developer Portal > "
         "Bot page, not the Client Secret), then `uv run voicebot doctor`. "
-        "Other causes: no network access or a firewall blocking Discord."
+        "If the token validates but sessions keep dying, another copy of the "
+        "bot is probably running with the same token (they kick each other "
+        "off): check `ps aux | grep bot.py` and `systemctl status voicebot`, "
+        "keep exactly one. Other causes: no network access or a firewall "
+        "blocking Discord."
     )
 
 
