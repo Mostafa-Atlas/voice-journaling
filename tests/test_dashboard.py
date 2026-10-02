@@ -116,6 +116,11 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(b'"status": "ok"', body)
 
+    def test_favicon_needs_no_token(self):
+        status, body, _ = _fetch(self.port, "/favicon.ico")
+        self.assertEqual(status, 204)
+        self.assertEqual(body, b"")
+
     def test_overview_requires_token(self):
         status, _, _ = _fetch(self.port, "/")
         self.assertEqual(status, 403)

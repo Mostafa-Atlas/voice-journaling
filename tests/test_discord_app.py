@@ -166,6 +166,7 @@ class StartupHintTests(unittest.TestCase):
         self.assertIn("voicebot doctor", hint)
         self.assertIn("TOKEN", hint.upper())
         self.assertIn("another copy", hint)
+        self.assertIn("Intent", hint)
         self.assertGreater(STARTUP_WATCHDOG_SECONDS, 0)
 
 

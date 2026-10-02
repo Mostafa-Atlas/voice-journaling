@@ -639,6 +639,10 @@ itself to apply them (or use Restart below).</p>
     # -- routing ---------------------------------------------------------
     def do_GET(self) -> None:
         query = self._query()
+        path = urlsplit(self.path).path
+        if path == "/favicon.ico":
+            self._send(204, "")
+            return
         if not self._authorized(query):
             self._send(403, "<h1>Forbidden</h1><p>Valid dashboard token required.</p>")
             return

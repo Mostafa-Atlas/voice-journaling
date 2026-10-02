@@ -7,7 +7,7 @@ import json
 import logging
 import os
 
-from discord import LoginFailure
+from discord.errors import LoginFailure, PrivilegedIntentsRequired
 from dotenv import load_dotenv
 
 from voicebot.ai import build_gateway
@@ -139,6 +139,15 @@ def main(argv: list[str] | None = None) -> int:
             "Discord rejected the token at login. Run `uv run voicebot setup` "
             "with a fresh Bot token (Developer Portal > Bot page, not the "
             "Client Secret), then `uv run voicebot doctor`."
+        )
+        return 1
+    except PrivilegedIntentsRequired:
+        log.error(
+            "Discord refused the connection: this bot needs the privileged "
+            "Message Content Intent, which is off for your application. Open "
+            "the Developer Portal > your app > Bot page, enable 'Message "
+            "Content Intent' under Privileged Gateway Intents, save, and "
+            "restart the bot. See docs/DISCORD_SETUP.md."
         )
         return 1
     if not getattr(bot, "was_ready", True):

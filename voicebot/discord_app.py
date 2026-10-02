@@ -28,8 +28,9 @@ def startup_failure_hint() -> str:
         "If the token validates but sessions keep dying, another copy of the "
         "bot is probably running with the same token (they kick each other "
         "off): check `ps aux | grep bot.py` and `systemctl status voicebot`, "
-        "keep exactly one. Other causes: no network access or a firewall "
-        "blocking Discord."
+        "keep exactly one. Also confirm the Message Content Intent is enabled "
+        "on the app's Bot page in the Developer Portal. Other causes: no "
+        "network access or a firewall blocking Discord."
     )
 
 
