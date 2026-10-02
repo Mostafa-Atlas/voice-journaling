@@ -7,6 +7,7 @@ import json
 import logging
 import os
 
+from discord import LoginFailure
 from dotenv import load_dotenv
 
 from voicebot.ai import build_gateway
@@ -42,6 +43,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Dashboard token (default: DASHBOARD_TOKEN env, else generated)",
     )
+    parser.add_argument(
+        "--no-auto-reload",
+        action="store_true",
+        help="Do not restart automatically when .env changes",
+    )
     return parser
 
 
@@ -58,6 +64,33 @@ def main(argv: list[str] | None = None) -> int:
 
     configure_logging(settings)
     log = logging.getLogger("voicebot")
+    dashboard_token = ""
+    if args.dashboard:
+        from voicebot.dashboard import (
+            resolve_dashboard_token,
+            start_dashboard,
+            write_env_updates,
+        )
+
+        dashboard_token, generated = resolve_dashboard_token(args.dashboard_token)
+        if generated:
+            # resolve only generates when neither flag nor env provided, so the
+            # token is safe to persist: it keeps the dashboard URL stable
+            # across auto-reload restarts.
+            write_env_updates(PROJECT_ROOT / ".env", {"DASHBOARD_TOKEN": dashboard_token})
+            generated = False
+            log.info("saved dashboard token to .env for stable restarts")
+        dashboard_generated = generated
+    if not args.no_auto_reload:
+        from voicebot.reload import restart_process, watch_env_file
+
+        watch_env_file(
+            PROJECT_ROOT / ".env",
+            on_change=lambda: restart_process(
+                "detected .env change; restarting so new values take effect"
+            ),
+        )
+        log.info("config auto-reload watching path=%s", PROJECT_ROOT / ".env")
     database = Database(settings.database_path)
     database.initialize()
     storage = FileStorage(settings.data_root, settings.voice_log_dir)
@@ -66,9 +99,6 @@ def main(argv: list[str] | None = None) -> int:
     service = MemoService(settings, database, storage, gateway, obsidian)
     bot = create_bot(settings, database, service, obsidian)
     if args.dashboard:
-        from voicebot.dashboard import resolve_dashboard_token, start_dashboard
-
-        token, generated = resolve_dashboard_token(args.dashboard_token)
         start_dashboard(
             settings,
             database,
@@ -77,9 +107,9 @@ def main(argv: list[str] | None = None) -> int:
             obsidian=obsidian,
             host=args.dashboard_host,
             port=args.dashboard_port,
-            token=token,
+            token=dashboard_token,
         )
-        if generated:
+        if dashboard_generated:
             log.warning(
                 "dashboard token was auto-generated for this run; "
                 "set DASHBOARD_TOKEN for a stable token"
@@ -89,9 +119,23 @@ def main(argv: list[str] | None = None) -> int:
             args.dashboard_host,
             args.dashboard_port,
         )
-        print(f"Dashboard: http://{args.dashboard_host}:{args.dashboard_port}?token={token}")
+        print(
+            f"Dashboard: http://{args.dashboard_host}:{args.dashboard_port}?token={dashboard_token}"
+        )
     log.info("starting voicebot config=%s", json.dumps(settings.redacted_summary()))
-    bot.run(settings.discord_token, log_handler=None)
+    try:
+        bot.run(settings.discord_token, log_handler=None)
+    except LoginFailure:
+        log.error(
+            "Discord rejected the token at login. Run `uv run voicebot setup` "
+            "with a fresh Bot token (Developer Portal > Bot page, not the "
+            "Client Secret), then `uv run voicebot doctor`."
+        )
+        return 1
+    if not getattr(bot, "was_ready", True):
+        # The startup watchdog closed the bot: gateway never became ready
+        # (usually an invalid token). The clear error is already logged.
+        return 1
     return 0
 
 

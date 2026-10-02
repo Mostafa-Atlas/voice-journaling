@@ -8,7 +8,8 @@ requires the dashboard token (query ``?token=...`` or
 
 The dashboard is read-mostly: status, history with search, memo detail with
 audio playback, log tail, and JSON/CSV export. The settings page can update
-safe ``.env`` values; changes take effect after a bot restart.
+safe ``.env`` values; the running bot restarts itself to apply them
+(watch ``voicebot.reload``), or use the Restart button.
 """
 
 from __future__ import annotations
@@ -31,8 +32,17 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import __version__
 from .config import ConfigurationError, Settings
+from .reload import restart_process
 
 log = logging.getLogger("voicebot.dashboard")
+
+# Delay before a dashboard-requested restart so the HTTP response is flushed.
+RESTART_DELAY_SECONDS = 0.5
+
+
+def _restart_from_dashboard() -> None:
+    restart_process("restart requested from dashboard")
+
 
 AUDIO_CONTENT_TYPES = {
     ".ogg": "audio/ogg",
@@ -389,10 +399,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if restart:
             banner = (
                 '<div class="banner">Settings changed on disk differ from the running '
-                f"config ({len(restart)} key(s)). Restart the bot to apply.</div>"
+                f"config ({len(restart)} key(s)). The bot restarts itself on "
+                "`.env` changes — or apply now:"
+                f"{self._restart_button(query)}</div>"
             )
         elif query.get("saved"):
-            banner = '<div class="banner ok">Settings saved. Restart the bot to apply.</div>'
+            banner = (
+                '<div class="banner ok">Settings saved. The bot restarts itself to '
+                "apply them — or apply now:"
+                f"{self._restart_button(query)}</div>"
+            )
         if query.get("error"):
             banner += f'<div class="banner err">{esc(query["error"])}</div>'
         qs = self._token_qs(query)
@@ -405,6 +421,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
 <a href="/export?format=json&{qs}">Export JSON</a>
 <a href="/export?format=csv&{qs}">Export CSV</a></nav>
 <div class="wrap">{banner}{body}</div></body></html>"""
+
+    def _restart_button(self, query: dict[str, str]) -> str:
+        return (
+            f"""<form method="post" action="/restart?{self._token_qs(query)}"
+ style="display:inline;margin-left:8px">"""
+            f"""<input type="hidden" name="token" value="{esc(query.get("token", self.token))}">"""
+            """<button type="submit">Restart bot now</button></form>"""
+        )
 
     def _overview(self, query: dict[str, str]) -> str:
         dash = self.dashboard
@@ -584,10 +608,14 @@ attempts: {memo.attempt_count} · obsidian: {esc(sync or "n/a")}</p>
         return f"""
 <h1>Settings</h1>
 <p class="muted">Secrets are managed in <code>.env</code> and never shown here.
-Edits below are validated and written to <code>.env</code>; restart the bot to apply them.</p>
+Edits below are validated and written to <code>.env</code>; the bot restarts
+itself to apply them (or use Restart below).</p>
 <form method="post" action="/settings?{self._token_qs(query)}">
 <input type="hidden" name="token" value="{esc(query.get("token", self.token))}">
 {rows}<button type="submit">Save settings</button></form>
+<h2>Restart</h2><p class="muted">Apply the current <code>.env</code> now
+(the bot also restarts itself when it changes).</p>
+{self._restart_button(query)}
 <h2>Secrets (masked)</h2><table><tr><th>Key</th><th>State</th></tr>{secrets}</table>"""
 
     def _logs(self, query: dict[str, str]) -> str:
@@ -656,6 +684,17 @@ Edits below are validated and written to <code>.env</code>; restart the bot to a
         form_token = form.get("token", query.get("token", ""))
         if not (self.token and hmac.compare_digest(form_token, self.token)):
             self._send(403, "<h1>Forbidden</h1><p>Valid dashboard token required.</p>")
+            return
+        if urlsplit(self.path).path == "/restart":
+            self._send(
+                200,
+                "<h1>Restarting…</h1><p class='muted'>The bot is restarting to "
+                "pick up the current <code>.env</code>. This page will be back "
+                "in a few seconds.</p>",
+            )
+            timer = threading.Timer(RESTART_DELAY_SECONDS, _restart_from_dashboard)
+            timer.daemon = True
+            timer.start()
             return
         if urlsplit(self.path).path != "/settings":
             self._send(404, "<h1>Not found</h1>")

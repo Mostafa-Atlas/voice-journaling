@@ -14,7 +14,8 @@ from .storage import FileStorage
 
 def run_dashboard_standalone(host: str, port: int) -> int:
     """Serve the dashboard without requiring Discord credentials."""
-    from .dashboard import resolve_dashboard_token, start_dashboard
+    from .dashboard import resolve_dashboard_token, start_dashboard, write_env_updates
+    from .reload import restart_process, watch_env_file
 
     try:
         settings = Settings.load(require_secrets=False)
@@ -25,11 +26,18 @@ def run_dashboard_standalone(host: str, port: int) -> int:
     storage = FileStorage(settings.data_root, settings.voice_log_dir)
     token = os.getenv("DASHBOARD_TOKEN", "").strip()
     resolved, generated = resolve_dashboard_token(token or None)
+    if generated:
+        write_env_updates(PROJECT_ROOT / ".env", {"DASHBOARD_TOKEN": resolved})
+        print("Saved dashboard token to .env for stable restarts.")
+    watch_env_file(
+        PROJECT_ROOT / ".env",
+        on_change=lambda: restart_process(
+            "detected .env change; restarting so new values take effect"
+        ),
+    )
     server, _ = start_dashboard(settings, database, storage, host=host, port=port, token=resolved)
     actual_port = server.server_port
     print(f"Dashboard: http://{host}:{actual_port}?token={resolved}")
-    if generated:
-        print("Token was auto-generated for this run; set DASHBOARD_TOKEN for a stable one.")
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 try:
     import discord
@@ -12,7 +12,12 @@ except ImportError:  # Offline stdlib-only run; CI and smoke tests install runti
     discord = None
 
 from tests.helpers import make_settings
-from voicebot.discord_app import create_bot
+from voicebot.discord_app import (
+    STARTUP_WATCHDOG_SECONDS,
+    _startup_watchdog,
+    create_bot,
+    startup_failure_hint,
+)
 from voicebot.models import Memo, MemoStatus, SummaryData
 from voicebot.service import ProcessingResult
 
@@ -131,6 +136,36 @@ class DiscordAdapterTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(message.replies, [])
             bot.process_commands.assert_not_awaited()
             await bot.close()
+
+    async def test_new_bot_is_not_ready_yet(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = make_settings(Path(directory), ALLOWED_USER_IDS="123")
+            bot = create_bot(settings, FakeDatabase(), FakeService(FakeMessage([])), FakeObsidian())
+            self.assertFalse(bot.was_ready)
+            await bot.close()
+
+    async def test_watchdog_closes_bot_that_never_becomes_ready(self):
+        bot = AsyncMock()
+        bot.is_ready = Mock(return_value=False)
+        with patch("voicebot.discord_app.STARTUP_WATCHDOG_SECONDS", 0):
+            await _startup_watchdog(bot)
+        bot.close.assert_awaited_once()
+
+    async def test_watchdog_leaves_ready_bot_alone(self):
+        bot = AsyncMock()
+        bot.is_ready = Mock(return_value=True)
+        with patch("voicebot.discord_app.STARTUP_WATCHDOG_SECONDS", 0):
+            await _startup_watchdog(bot)
+        bot.close.assert_not_awaited()
+
+
+class StartupHintTests(unittest.TestCase):
+    def test_hint_points_at_setup_and_token(self):
+        hint = startup_failure_hint()
+        self.assertIn("voicebot setup", hint)
+        self.assertIn("voicebot doctor", hint)
+        self.assertIn("TOKEN", hint.upper())
+        self.assertGreater(STARTUP_WATCHDOG_SECONDS, 0)
 
 
 if __name__ == "__main__":

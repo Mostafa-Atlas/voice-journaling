@@ -194,6 +194,31 @@ class DashboardTests(unittest.TestCase):
         self.assertTrue(body.startswith(b"memo_id,received_at"))
         self.assertIn("text/csv", headers.get("Content-Type", ""))
 
+    def test_restart_requires_token_and_triggers_restart(self):
+        from unittest.mock import patch
+
+        import voicebot.dashboard as dashboard_module
+
+        status, _, _ = _fetch(self.port, "/restart", method="POST", data=b"")
+        self.assertEqual(status, 403)
+        with (
+            patch.object(dashboard_module, "restart_process") as restarter,
+            patch.object(dashboard_module, "RESTART_DELAY_SECONDS", 0.01),
+        ):
+            payload = urllib.parse.urlencode({"token": self.token}).encode()
+            status, body, _ = _fetch(
+                self.port, "/restart", token=self.token, method="POST", data=payload
+            )
+            self.assertEqual(status, 200)
+            self.assertIn(b"Restarting", body)
+            for _ in range(100):
+                if restarter.called:
+                    break
+                import time
+
+                time.sleep(0.05)
+            restarter.assert_called_once_with("restart requested from dashboard")
+
 
 if __name__ == "__main__":
     unittest.main()

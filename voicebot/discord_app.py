@@ -13,6 +13,28 @@ from .storage import SUPPORTED_EXTENSIONS
 
 log = logging.getLogger("voicebot.discord")
 
+# Give up waiting for the first successful gateway session after this long.
+# A bad token otherwise retries forever with only "session has been
+# invalidated" in the logs.
+STARTUP_WATCHDOG_SECONDS = 180
+
+
+def startup_failure_hint() -> str:
+    return (
+        "gave up waiting for Discord (bot never became ready). Most likely the "
+        "DISCORD_TOKEN is invalid or was reset after being copied: run "
+        "`uv run voicebot setup` with a fresh Bot token (Developer Portal > "
+        "Bot page, not the Client Secret), then `uv run voicebot doctor`. "
+        "Other causes: no network access or a firewall blocking Discord."
+    )
+
+
+async def _startup_watchdog(bot) -> None:
+    await asyncio.sleep(STARTUP_WATCHDOG_SECONDS)
+    if not bot.is_ready():
+        log.error("discord startup failed: %s", startup_failure_hint())
+        await bot.close()
+
 
 def create_bot(
     settings: Settings,
@@ -27,8 +49,17 @@ def create_bot(
     intents.message_content = True
     intents.dm_messages = True
     bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
+    bot.was_ready = False
     started = time.monotonic()
     resume_started = False
+
+    original_setup_hook = bot.setup_hook
+
+    async def setup_hook() -> None:
+        await original_setup_hook()
+        asyncio.create_task(_startup_watchdog(bot), name="voicebot-startup-watchdog")
+
+    bot.setup_hook = setup_hook  # type: ignore[method-assign]
 
     async def queue_tick() -> None:
         try:
@@ -43,6 +74,7 @@ def create_bot(
     @bot.event
     async def on_ready():
         nonlocal resume_started
+        bot.was_ready = True
         log.info("bot ready user_id=%s config=%s", bot.user.id, settings.redacted_summary())
         if settings.obsidian_enabled and not queue_loop.is_running():
             queue_loop.start()

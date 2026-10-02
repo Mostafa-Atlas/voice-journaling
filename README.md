@@ -132,8 +132,10 @@ It prints a URL like `http://127.0.0.1:8080?token=...`. What's inside:
 - **History** — searchable memo table (same full-text index as `!search`),
   memo detail with transcript, structured summary, and audio playback.
 - **Settings** — current config with secrets masked; safe values can be edited
-  and are validated before being written to `.env` (restart applies them —
-  the dashboard shows a banner while disk and running config differ).
+  and are validated before being written to `.env`. The bot watches `.env`
+  and restarts itself to apply changes (same CLI args, nothing lost — state
+  lives in SQLite), or hit **Restart bot now**. Pass `--no-auto-reload` to
+  opt out.
 - **Logs** — tail of `voicebot.log` for quick failure triage.
 - **Export** — one-click JSON/CSV download of memos.
 - **`/healthz`** — minimal liveness JSON (no auth, no private data).
