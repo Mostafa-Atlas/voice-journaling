@@ -54,9 +54,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     if os.name == "posix":
         os.umask(0o077)
-    args = build_parser().parse_args(argv)
-    # Environment variables always win over .env values.
+    # Load .env BEFORE parsing args: CLI defaults (dashboard host/port) come
+    # from the environment, and environment variables always win over .env.
     load_dotenv(PROJECT_ROOT / ".env", override=False)
+    args = build_parser().parse_args(argv)
     try:
         settings = Settings.load()
     except ConfigurationError as exc:
