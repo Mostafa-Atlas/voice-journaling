@@ -6,15 +6,16 @@ first for anything marked `needs-design`.
 
 ## Next: packaging & onboarding
 
+- [x] `uv run voicebot setup` wizard (3 questions, live validation, writes `.env`)
+- [x] `uv run voicebot doctor` preflight (token/key validity, paths, actionable fixes)
+- [x] `uv run voicebot dashboard` standalone (no Discord config needed)
+- [x] `scripts/bootstrap-ubuntu.sh` + `scripts/install-service.sh` (native Ubuntu)
 - [ ] `Dockerfile` + `docker-compose.yml` (`needs-design`)
   - One-command run: `docker compose up --build` with env file support.
   - Non-root image user, persistent volumes for data/logs/vault, healthcheck
     against `voicebot health`, pinned base image + lockfile build.
 - [ ] `docker-compose.obsidian.yml` overlay: optional vault volume profile so the
   base compose stays local-only.
-- [ ] Quickstart polish: `uv run python -m voicebot doctor` preflight check
-  (token validity without side effects, provider key shape, vault writability,
-  Discord intent hint). Fails with actionable messages.
 
 ## Multi-user support (`needs-design`)
 

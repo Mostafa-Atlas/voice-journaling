@@ -11,16 +11,18 @@ private voice data flows through it, so correctness and secrecy matter more than
   immediately**. Deleting the visible copy is not enough.
 - Keep PRs small and focused. One behavior change per PR.
 - Add or update tests for behavior changes. No network calls in tests —
-  use the fakes in `tests/` (see `test_ai.py`, `test_service.py`).
+  inject fake probes/validators (see `test_setup.py`, `test_doctor.py`,
+  `test_service.py`).
 
 ## Local setup (uv)
 
 ```bash
 uv sync
-cp .env.example .env   # Windows: copy .env.example .env
+uv run voicebot setup --skip-validation   # writes .env with test values
 ```
 
-Fill in `.env` (see README for every option). Then:
+Or on Ubuntu: `./scripts/bootstrap-ubuntu.sh`, then `uv run voicebot setup`.
+See README for every option. Then:
 
 ```bash
 uv run python scripts/scan_secrets.py

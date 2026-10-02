@@ -7,9 +7,38 @@ from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from .config import PROJECT_ROOT, Settings
+from .config import PROJECT_ROOT, ConfigurationError, Settings
 from .database import Database
 from .storage import FileStorage
+
+
+def run_dashboard_standalone(host: str, port: int) -> int:
+    """Serve the dashboard without requiring Discord credentials."""
+    from .dashboard import resolve_dashboard_token, start_dashboard
+
+    try:
+        settings = Settings.load(require_secrets=False)
+    except ConfigurationError as exc:
+        raise SystemExit(f"Configuration error: {exc}") from exc
+    database = Database(settings.database_path)
+    database.initialize()
+    storage = FileStorage(settings.data_root, settings.voice_log_dir)
+    token = os.getenv("DASHBOARD_TOKEN", "").strip()
+    resolved, generated = resolve_dashboard_token(token or None)
+    server, _ = start_dashboard(settings, database, storage, host=host, port=port, token=resolved)
+    actual_port = server.server_port
+    print(f"Dashboard: http://{host}:{actual_port}?token={resolved}")
+    if generated:
+        print("Token was auto-generated for this run; set DASHBOARD_TOKEN for a stable one.")
+    print("Press Ctrl+C to stop.")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping dashboard.")
+    finally:
+        server.shutdown()
+        server.server_close()
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,6 +46,25 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("health", help="Check database and queue health")
     subparsers.add_parser("reindex", help="Regenerate daily Markdown indexes")
+
+    setup = subparsers.add_parser("setup", help="Interactive first-run setup wizard")
+    setup.add_argument("--discord-token", help="Discord bot token (else prompted)")
+    setup.add_argument("--client-id", default="", help="Discord application ID for invite URL")
+    setup.add_argument("--provider", choices=["groq", "openai"], help="AI provider (else prompted)")
+    setup.add_argument("--provider-key", help="API key for the provider (else prompted)")
+    setup.add_argument("--owner-id", help="Your Discord user ID (else prompted)")
+    setup.add_argument("--timezone", default=None, help="IANA timezone (default UTC)")
+    setup.add_argument("--non-interactive", action="store_true", help="Fail instead of prompting")
+    setup.add_argument("--skip-validation", action="store_true", help="Skip live API checks")
+
+    doctor = subparsers.add_parser("doctor", help="Preflight checks for fresh installs")
+    doctor.add_argument("--json", action="store_true", help="Machine-readable output")
+
+    dashboard_cmd = subparsers.add_parser(
+        "dashboard", help="Serve the web dashboard without needing Discord configured"
+    )
+    dashboard_cmd.add_argument("--host", default=os.getenv("DASHBOARD_HOST", "127.0.0.1"))
+    dashboard_cmd.add_argument("--port", type=int, default=int(os.getenv("DASHBOARD_PORT", "8080")))
 
     export = subparsers.add_parser("export", help="Export memo metadata and content as JSON")
     export.add_argument("--output", type=Path, help="Write JSON to this file instead of stdout")
@@ -33,6 +81,30 @@ def main(argv: list[str] | None = None) -> int:
         os.umask(0o077)
     _load_dotenv_if_available()
     args = build_parser().parse_args(argv)
+    if args.command == "setup":
+        from .setup import run_setup
+
+        try:
+            return run_setup(
+                PROJECT_ROOT,
+                discord_token=args.discord_token,
+                client_id=args.client_id,
+                provider=args.provider,
+                provider_key=args.provider_key,
+                owner_id=args.owner_id,
+                timezone_name=args.timezone,
+                non_interactive=args.non_interactive,
+                skip_validation=args.skip_validation,
+            )
+        except ConfigurationError as exc:
+            print(f"Setup failed: {exc}")
+            return 1
+    if args.command == "doctor":
+        from .doctor import main as doctor_main
+
+        return doctor_main(PROJECT_ROOT, output_json=args.json)
+    if args.command == "dashboard":
+        return run_dashboard_standalone(args.host, args.port)
     settings = Settings.load(require_secrets=False)
     database = Database(settings.database_path)
     database.initialize()

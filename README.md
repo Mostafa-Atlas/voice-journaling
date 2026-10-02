@@ -41,44 +41,37 @@ completed`, so `!retry` picks up exactly where a failure left off.
 > Markdown (and your Obsidian vault only if you enable it). Decide your retention
 > and backup policy for all three. See [SECURITY.md](SECURITY.md).
 
-## Quickstart
+## Quickstart (Ubuntu, native)
+
+You don't need to hand-edit config files. The wizard asks three questions,
+validates each answer live, and writes `.env` for you.
 
 ```bash
-uv sync
-cp .env.example .env               # Windows: copy .env.example .env
+git clone https://github.com/Mostafa-Atlas/voice-journaling.git
+cd voice-journaling
+./scripts/bootstrap-ubuntu.sh   # installs uv + Python env (idempotent)
+uv run voicebot setup           # Discord token, provider key, owner ID
+uv run voicebot doctor          # preflight: everything must be green
+uv run python bot.py --dashboard
 ```
 
-Edit `.env`:
-
-```ini
-DISCORD_TOKEN=<paste>
-GROQ_API_KEY=<paste>               # only if STT_PROVIDER or SUMMARY_PROVIDER=groq
-ALLOWED_USER_IDS=123456789
-```
-
-Minimal local-only run (no Obsidian):
-
-```ini
-STT_PROVIDER=groq
-SUMMARY_PROVIDER=groq
-OBSIDIAN_ENABLED=false
-TIMEZONE=UTC
-```
-
-Start the bot:
-
-```bash
-uv run python bot.py
-```
+Before `setup`, create the Discord side once (5 min): [docs/DISCORD_SETUP.md](docs/DISCORD_SETUP.md)
+— bot token, Message Content Intent toggle, invite URL (the wizard prints it),
+your numeric user ID.
 
 DM the bot an audio file (`.ogg .mp3 .wav .m4a .webm .flac .mp4 .mpeg .mpga`,
 default max 25 MB). It replies `⏳ Received…`, edits the message through each
 stage, then `✅ Memo … saved` with a summary teaser.
 
-Verify it works:
+Manual alternative (any OS with `uv`): `uv sync`, copy `.env.example` to
+`.env`, fill in `DISCORD_TOKEN`, one provider key, and `ALLOWED_USER_IDS`,
+then `uv run voicebot doctor`.
+
+For 24/7 operation after `doctor` is green:
 
 ```bash
-uv run voicebot health
+sudo ./scripts/install-service.sh   # systemd unit, starts on boot
+journalctl -u voicebot -f           # follow the logs
 ```
 
 ## Configuration
@@ -196,6 +189,8 @@ when the path is not a mount point. Restart the bot after changing these.
 ## Maintenance
 
 ```bash
+uv run voicebot doctor            # preflight after any config change
+uv run voicebot setup             # re-run any time; keeps existing values
 uv run voicebot health
 uv run voicebot reindex
 uv run voicebot export --output exports/memos.json
@@ -222,11 +217,17 @@ It never prints message contents.
 
 ## Deployment
 
-Sample systemd unit: [`deploy/voicebot.service`](deploy/voicebot.service).
-It assumes code at `/opt/voice-to-text`, a locked env from `uv sync --locked`,
-secrets at `/etc/voicebot/voicebot.env` (mode `0640`), runtime data at
-`/var/lib/voicebot` (mode `0700`), and a dedicated unprivileged account.
-Only add a vault `ReadWritePaths=` entry if you enable Obsidian.
+No manual server surgery needed:
+
+```bash
+sudo ./scripts/install-service.sh            # systemd unit, starts on boot
+sudo ./scripts/install-service.sh --no-start # install without starting
+```
+
+It installs from your current checkout, creates the service user, writes
+`/etc/voicebot/voicebot.env` (mode `0640`), and renders
+[`deploy/voicebot.service`](deploy/voicebot.service) with your paths.
+Runtime data lives at `/var/lib/voicebot` (mode `0700`).
 See [SECURITY.md](SECURITY.md) for the threat model and
 [ROADMAP.md](ROADMAP.md) for Docker/multi-user plans.
 
@@ -243,7 +244,12 @@ See [SECURITY.md](SECURITY.md) for the threat model and
 | `voicebot/storage.py` | Atomic file writes, daily indexes |
 | `voicebot/obsidian.py` | Optional vault sync (disabled by default) |
 | `voicebot/discord_app.py` | Discord event handlers + commands |
-| `voicebot/cli.py` | `voicebot health/reindex/export/prune` |
+| `voicebot/cli.py` | `voicebot setup/doctor/dashboard/health/reindex/export/prune` |
+| `voicebot/setup.py` | Interactive first-run wizard (validates, writes `.env`) |
+| `voicebot/doctor.py` | Preflight checks for fresh installs |
+| `scripts/bootstrap-ubuntu.sh` | Fresh-Ubuntu bootstrap (uv, env, dirs) |
+| `scripts/install-service.sh` | systemd service installer |
+| `docs/DISCORD_SETUP.md` | Discord portal walkthrough (token, intent, invite, user ID) |
 | `delete_messages.py` | DM cleanup utility |
 | `scripts/scan_secrets.py` | Tracked-source secret scanner |
 | `tests/` | Offline suite (fake AI clients, temp dirs, no network) |
